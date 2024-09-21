@@ -1,0 +1,29 @@
+syntax = "proto2";
+
+// serial name 'com.jpd.methodcards.repository.MethodsProto'
+message MethodsProto {
+  // WARNING: a default value decoded when value is missing
+  repeated MethodProto methods = 1;
+}
+
+// serial name 'com.jpd.methodcards.repository.MethodProto'
+message MethodProto {
+  required string name = 1;
+  required string notation = 2;
+  required int32 stage = 3;
+  required int32 ruleoffsFrom = 4;
+  required int32 ruleoffsEvery = 5;
+  // WARNING: a default value decoded when value is missing
+  map<string, CallProto> calls = 6;
+  required int32 magic = 7;
+  required string classification = 8;
+}
+
+// serial name 'com.jpd.methodcards.repository.MethodProto.CallProto'
+message CallProto {
+  required string symbol = 1;
+  required string notation = 2;
+  required int32 from_ = 3;
+  required int32 every = 4;
+  required int32 cover = 5;
+}
