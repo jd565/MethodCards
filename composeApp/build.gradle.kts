@@ -54,10 +54,6 @@ kotlin {
             }
         }
         binaries.executable()
-        compilerOptions {
-            freeCompilerArgs.add("-Xwasm-debugger-custom-formatters")
-            freeCompilerArgs.add("-Xwasm-use-new-exception-proposal")
-        }
     }
 
     jvm("desktop")
