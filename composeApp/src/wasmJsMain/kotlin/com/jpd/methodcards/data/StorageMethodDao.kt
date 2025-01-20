@@ -9,37 +9,59 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.update
-import org.w3c.dom.Storage
-import org.w3c.dom.set
+import kotlin.collections.set
 
-class StorageMethodDao(
-    private val storage: Storage,
-) : MethodDao {
+class StorageMethodDao : MethodDao {
     private val methodsByStage = MutableStateFlow(emptyMap<Int, List<MethodSelection>>())
     private val methodsByName = MutableStateFlow(emptyMap<String, MethodWithCalls>())
     private var magicByName = emptyMap<String, Int>()
 
-    private val selectedMethods = MutableStateFlow(LinkedHashSet(
-        storage.getItem(SELECTED_METHODS_KEY)?.split(",") ?: emptyList()
-    ))
-    private val multiMethodEnabledMethods = MutableStateFlow(
-        storage.getItem(MULTI_METHOD_ENABLED_METHODS_KEY)?.split(",")?.toSet() ?: emptySet()
+    // private val selectedMethods = MutableStateFlow(LinkedHashSet(
+    //     // storage.getItem(SELECTED_METHODS_KEY)?.split(",") ?: emptyList()
+    //     emptyList<String>()
+    // ))
+    // private val multiMethodEnabledMethods = MutableStateFlow(
+    //     // storage.getItem(MULTI_METHOD_ENABLED_METHODS_KEY)?.split(",")?.toSet() ?: emptySet()
+    //     emptySet<String>()
+    // )
+    //     private val multiMethodFrequency = MutableStateFlow(
+    //         // storage.getItem(MULTI_METHOD_FREQUENCY_KEY)?.split(",")?.associate {
+    //         //     val (name, frequency) = it.split(":")
+    //         //     name to MethodFrequency.valueOf(frequency)
+    //         // } ?: emptyMap()
+    //         emptyMap<String, MethodFrequency>()
+    //     )
+    // private val blueLineMethod = MutableStateFlow(
+    //     // storage.getItem(BLUE_LINE_METHOD_KEY) ?: ""
+    //     ""
+    // )
+
+    private val selectedMethods = StorageBasedFlow(
+        SELECTED_METHODS_KEY,
+        { it.joinToString(",") },
+        { it?.split(",")?.toCollection(LinkedHashSet()) ?: LinkedHashSet() },
     )
-    private val multiMethodFrequency = MutableStateFlow(
-        storage.getItem(MULTI_METHOD_FREQUENCY_KEY)?.split(",")?.associate {
-            val (name, frequency) = it.split(":")
-            name to MethodFrequency.valueOf(frequency)
-        } ?: emptyMap()
+    private val multiMethodEnabledMethods = StorageBasedFlow(
+        MULTI_METHOD_ENABLED_METHODS_KEY,
+        { it.joinToString(",") },
+        { it?.split(",")?.toSet() ?: emptySet() },
     )
-    private val blueLineMethod = MutableStateFlow(
-        storage.getItem(BLUE_LINE_METHOD_KEY) ?: ""
+    private val multiMethodFrequency = StorageBasedFlow(
+        MULTI_METHOD_FREQUENCY_KEY,
+        { it.entries.joinToString(",") { (name, frequency) -> "$name:$frequency" } },
+        {
+            it?.split(",")?.associate { str ->
+                val (name, frequency) = str.split(":")
+                name to MethodFrequency.valueOf(frequency)
+            } ?: emptyMap()
+        },
     )
+    private val blueLineMethod = StorageBasedFlow(BLUE_LINE_METHOD_KEY, { it }, { it ?: "" })
 
     override fun getMethodsByStage(stage: Int): Flow<List<MethodSelection>> {
         return combine(
             methodsByStage.map { it[stage] },
-            selectedMethods,
+            selectedMethods.flow(),
         ) { methods, selected ->
             val out = mutableListOf<MethodSelection>()
             var selectedCount = 0
@@ -57,25 +79,25 @@ class StorageMethodDao(
 
     override fun getSelectedMethods(): Flow<List<MethodWithCalls>> {
         return combine(
-            selectedMethods,
+            selectedMethods.flow(),
             methodsByName,
-            multiMethodEnabledMethods,
-            multiMethodFrequency,
-            blueLineMethod,
+            multiMethodEnabledMethods.flow(),
+            multiMethodFrequency.flow(),
+            blueLineMethod.flow(),
         ) { selected, all, mmeSet, mmfMap, bleStr ->
             selected.mapNotNull { name ->
-                val mme = name in mmeSet
-                val mmf = mmfMap[name] ?: MethodFrequency.Regular
-                val ble = name == bleStr
-                if (mme || ble || mmf != MethodFrequency.Regular) {
-                    all[name]?.copy(
-                        enabledForMultiMethod = mme,
-                        multiMethodFrequency = mmf,
-                        enabledForBlueline = ble,
-                    )
-                } else {
+                // val mme = name in mmeSet
+                // val mmf = mmfMap[name] ?: MethodFrequency.Regular
+                // val ble = name == bleStr
+                // if (mme || ble || mmf != MethodFrequency.Regular) {
+                //     all[name]?.copy(
+                //         enabledForMultiMethod = mme,
+                //         multiMethodFrequency = mmf,
+                //         enabledForBlueline = ble,
+                //     )
+                // } else {
                     all[name]
-                }
+                // }
             }
         }
     }
@@ -83,9 +105,9 @@ class StorageMethodDao(
     override fun getMethod(name: String): Flow<MethodWithCalls?> {
         return combine(
             methodsByName,
-            multiMethodEnabledMethods,
-            multiMethodFrequency,
-            blueLineMethod,
+            multiMethodEnabledMethods.flow(),
+            multiMethodFrequency.flow(),
+            blueLineMethod.flow(),
         ) { all, mmeSet, mmfMap, bleStr ->
             val mme = name in mmeSet
             val mmf = mmfMap[name] ?: MethodFrequency.Regular
@@ -130,7 +152,6 @@ class StorageMethodDao(
                 new
             }
         }
-        storage.set(SELECTED_METHODS_KEY, selectedMethods.value.joinToString(","))
     }
 
     override suspend fun toggleMethodEnabledForMultiMethod(name: String) {
@@ -141,25 +162,19 @@ class StorageMethodDao(
                 enabled + name
             }
         }
-        storage.set(MULTI_METHOD_ENABLED_METHODS_KEY, multiMethodEnabledMethods.value.joinToString(","))
     }
 
     override suspend fun deselectAllMethodsForMultiMethod() {
         multiMethodEnabledMethods.value = emptySet()
-        storage.set(MULTI_METHOD_ENABLED_METHODS_KEY, "")
     }
 
     override suspend fun setMultiMethodFrequency(name: String, frequency: MethodFrequency) {
         multiMethodFrequency.update { frequencies ->
             frequencies + (name to frequency)
         }
-        storage.set(MULTI_METHOD_FREQUENCY_KEY, multiMethodFrequency.value.entries.joinToString(",") { (name, frequency) ->
-            "$name:$frequency"
-        })
     }
 
     override suspend fun setBluelineMethod(name: String) {
-        storage.set(BLUE_LINE_METHOD_KEY, name)
         blueLineMethod.value = name
     }
 

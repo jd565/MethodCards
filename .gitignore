@@ -17,3 +17,4 @@ Pods/
 __pycache__
 /composeApp/release/
 /iosApp/iosApp/GoogleService-Info.plist
+/composeApp/google-services.json

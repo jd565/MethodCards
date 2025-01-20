@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavController
@@ -82,95 +83,95 @@ fun App() {
             navController.navigate(route = MethodName(it))
         }
 
-        Scaffold(
-            bottomBar = {
-                MethodCardBottomBar(navController)
-            },
-        ) { innerPadding ->
-            NavHost(
-                navController = navController,
-                startDestination = MethodCardScreen.BlueLine.name,
-                modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-            ) {
-                composable(route = MethodCardScreen.FlashCard.name) {
-                    FlashCardScreen(
-                        modifier = Modifier.fillMaxSize(),
-                        navigateToAppSettings = navigateToAppSettings,
-                        navigateToMultiMethodSelection = navigateToMultiMethodSelection,
-                    )
-                }
-                composable(route = MethodCardScreen.Simulator.name) {
-                    SimulatorScreen(
-                        modifier = Modifier.fillMaxSize(),
-                        {
-                            bottomSheetRoute.value = MethodCardScreen.Simulator.name
-                            showBottomSheet = true
-                        },
-                        navigateToAppSettings = navigateToAppSettings,
-                        navigateToMultiMethodSelection = navigateToMultiMethodSelection,
-                    )
-                }
-                composable(route = MethodCardScreen.BlueLine.name) {
-                    BlueLineScreen(
-                        modifier = Modifier.fillMaxHeight(),
-                        {},
-                        navigateToAppSettings = navigateToAppSettings,
-                        navigateBack = { navController.popBackStack() },
-                    )
-                }
-                composable<MethodName> { entry ->
-                    val name = entry.toRoute<MethodName>()
-                    BlueLineScreen(
-                        modifier = Modifier.fillMaxHeight(),
-                        { navigateToBlueline(name.name) },
-                        navigateToAppSettings = navigateToAppSettings,
-                        navigateBack = { navController.popBackStack() },
-                        method = name.name,
-                    )
-                }
-                composable(route = MethodCardScreen.Settings.name) {
-                    SettingsScreen(
-                        modifier = Modifier.fillMaxSize(),
-                        navigateToAddMethod = navigateToAddMethod,
-                        navigateToBlueline = navigateToBlueline,
-                    )
-                }
-                composable(route = MethodCardScreen.MultiMethodSelection.name) {
-                    MultiMethodSelectionScreen(
-                        modifier = Modifier.fillMaxSize(),
-                        onBack = { navController.popBackStack() },
-                    )
-                }
-                composable(route = MethodCardScreen.AddMethod.name) {
-                    AddMethodScreen(
-                        modifier = Modifier.fillMaxSize(),
-                        onBack = { navController.popBackStack() },
-                    )
-                }
-                composable(route = MethodCardScreen.Composition.name) {
-                    CompositionScreen(modifier = Modifier.fillMaxSize())
-                }
-            }
-        }
-
-        if (showBottomSheet) {
-            ModalBottomSheet(
-                sheetState = bottomSheetState,
-                onDismissRequest = {
-                    showBottomSheet = false
+            Scaffold(
+                bottomBar = {
+                    MethodCardBottomBar(navController)
                 },
-            ) {
-                when (bottomSheetRoute.value) {
-                    MethodCardScreen.Simulator.name -> {
-                        SimulatorSettingsSheet()
+            ) { innerPadding ->
+                NavHost(
+                    navController = navController,
+                    startDestination = MethodCardScreen.BlueLine.name,
+                    modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                ) {
+                    composable(route = MethodCardScreen.FlashCard.name) {
+                        FlashCardScreen(
+                            modifier = Modifier.fillMaxSize(),
+                            navigateToAppSettings = navigateToAppSettings,
+                            navigateToMultiMethodSelection = navigateToMultiMethodSelection,
+                        )
+                    }
+                    composable(route = MethodCardScreen.Simulator.name) {
+                        SimulatorScreen(
+                            modifier = Modifier.fillMaxSize(),
+                            {
+                                bottomSheetRoute.value = MethodCardScreen.Simulator.name
+                                showBottomSheet = true
+                            },
+                            navigateToAppSettings = navigateToAppSettings,
+                            navigateToMultiMethodSelection = navigateToMultiMethodSelection,
+                        )
+                    }
+                    composable(route = MethodCardScreen.BlueLine.name) {
+                        BlueLineScreen(
+                            modifier = Modifier.fillMaxHeight(),
+                            {},
+                            navigateToAppSettings = navigateToAppSettings,
+                            navigateBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable<MethodName> { entry ->
+                        val name = entry.toRoute<MethodName>()
+                        BlueLineScreen(
+                            modifier = Modifier.fillMaxHeight(),
+                            { navigateToBlueline(name.name) },
+                            navigateToAppSettings = navigateToAppSettings,
+                            navigateBack = { navController.popBackStack() },
+                            method = name.name,
+                        )
+                    }
+                    composable(route = MethodCardScreen.Settings.name) {
+                        SettingsScreen(
+                            modifier = Modifier.fillMaxSize(),
+                            navigateToAddMethod = navigateToAddMethod,
+                            navigateToBlueline = navigateToBlueline,
+                        )
+                    }
+                    composable(route = MethodCardScreen.MultiMethodSelection.name) {
+                        MultiMethodSelectionScreen(
+                            modifier = Modifier.fillMaxSize(),
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable(route = MethodCardScreen.AddMethod.name) {
+                        AddMethodScreen(
+                            modifier = Modifier.fillMaxSize(),
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable(route = MethodCardScreen.Composition.name) {
+                        CompositionScreen(modifier = Modifier.fillMaxSize())
                     }
                 }
-                // MethodCardBottomSheet()
             }
-        }
+
+            if (showBottomSheet) {
+                ModalBottomSheet(
+                    sheetState = bottomSheetState,
+                    onDismissRequest = {
+                        showBottomSheet = false
+                    },
+                ) {
+                    when (bottomSheetRoute.value) {
+                        MethodCardScreen.Simulator.name -> {
+                            SimulatorSettingsSheet()
+                        }
+                    }
+                    // MethodCardBottomSheet()
+                }
+            }
     }
 }
 
@@ -233,3 +234,10 @@ private fun lightMethodCardColors(): ColorScheme = lightColorScheme(
 private fun darkMethodCardColors(): ColorScheme = darkColorScheme(
     surface = Color(0xFF212121),
 )
+
+internal val LocalKeyEvents = staticCompositionLocalOf { mutableListOf<(KeyDirection) -> Boolean>() }
+
+enum class KeyDirection {
+    Left, Down, Right
+}
+

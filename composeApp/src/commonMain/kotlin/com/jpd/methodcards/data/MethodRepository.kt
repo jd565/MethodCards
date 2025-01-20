@@ -24,7 +24,6 @@ class MethodRepository(
     }
 
     fun observeSelectedMethods(): Flow<List<MethodWithCalls>> = dao.getSelectedMethods()
-        .map { methods -> methods }
 
     fun observeMethod(name: String): Flow<MethodWithCalls?> = dao.getMethod(name)
 

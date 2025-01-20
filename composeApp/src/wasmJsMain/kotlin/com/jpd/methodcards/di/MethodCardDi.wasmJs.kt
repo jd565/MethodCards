@@ -6,28 +6,24 @@ import com.jpd.methodcards.data.MethodDao
 import com.jpd.methodcards.data.SimulatorPersistence
 import com.jpd.methodcards.data.SimulatorStoragePersistence
 import com.jpd.methodcards.data.StorageMethodDao
-import org.w3c.dom.Storage
 
 actual object MethodCardDi {
-    private lateinit var storage: Storage
-
-    fun init(storage: Storage) {
-        this.storage = storage
-    }
-
     private val preferences by lazy {
-        MethodCardsStoragePreferences(storage)
+        MethodCardsStoragePreferences()
     }
+
     actual fun getMethodCardsPreferences(): MethodCardsPreferences = preferences
 
     private val dao by lazy {
-        StorageMethodDao(storage)
+        StorageMethodDao()
     }
+
     actual fun getMethodDao(): MethodDao = dao
 
     private val simulatorPersistence by lazy {
-        SimulatorStoragePersistence(storage)
+        SimulatorStoragePersistence()
     }
+
     actual fun getSimulatorPersistence(): SimulatorPersistence {
         return simulatorPersistence
     }

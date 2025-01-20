@@ -2,7 +2,6 @@ package com.jpd.methodcards.presentation.simulator
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement.Absolute.spacedBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,18 +24,16 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -44,11 +41,6 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.PathSegment
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -56,6 +48,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jpd.methodcards.data.MethodCardsPreferences
+import com.jpd.methodcards.data.MethodRepository
+import com.jpd.methodcards.di.MethodCardDi.getMethodCardsPreferences
+import com.jpd.methodcards.domain.CallFrequency
+import com.jpd.methodcards.domain.ExtraPathType
+import com.jpd.methodcards.domain.MethodWithCalls
+import com.jpd.methodcards.domain.PersistedSimulatorState
+import com.jpd.methodcards.domain.toBellChar
+import com.jpd.methodcards.presentation.KeyDirection
+import com.jpd.methodcards.presentation.LocalKeyEvents
+import com.jpd.methodcards.presentation.NoMethodSelectedView
 import com.jpd.methodcards.presentation.blueline.BlueLineColors
 import com.jpd.methodcards.presentation.blueline.BlueLineStroke
 import com.jpd.methodcards.presentation.blueline.TrebleLineColor
@@ -63,21 +66,12 @@ import com.jpd.methodcards.presentation.blueline.TrebleLineStroke
 import com.jpd.methodcards.presentation.icons.South
 import com.jpd.methodcards.presentation.icons.SouthEast
 import com.jpd.methodcards.presentation.icons.SouthWest
-import com.jpd.methodcards.data.MethodCardsPreferences
-import com.jpd.methodcards.data.MethodRepository
-import com.jpd.methodcards.di.MethodCardDi.getMethodCardsPreferences
-import com.jpd.methodcards.domain.CallFrequency
-import com.jpd.methodcards.domain.ExtraPathType
-import com.jpd.methodcards.domain.MethodWithCalls
-import com.jpd.methodcards.domain.toBellChar
-import com.jpd.methodcards.presentation.NoMethodSelectedView
 import com.jpd.methodcards.presentation.ui.MultiMethodTopBar
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -87,7 +81,6 @@ import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.min
-import kotlin.time.Duration.Companion.milliseconds
 
 private const val SimulatorExplainer = "On this screen you can select any number of methods from those currently " +
     "enabled, and then practise ringing it.\n\n" +
@@ -217,6 +210,20 @@ private fun RowCounts(state: SimulatorState, seeFullStats: () -> Unit, modifier:
 
 @Composable
 private fun ColumnScope.SimulatorLine(state: SimulatorState?, seeFullStats: () -> Unit) {
+    val events = LocalKeyEvents.current
+    val keyState by rememberUpdatedState(state)
+    DisposableEffect(events) {
+        val cb: (KeyDirection) -> Boolean = {
+            when (it) {
+                KeyDirection.Down -> keyState?.moveDown()
+                KeyDirection.Left -> keyState?.moveLeft()
+                KeyDirection.Right -> keyState?.moveRight()
+            }
+            true
+        }
+        events.add(cb)
+        onDispose { events.remove(cb) }
+    }
     Box(
         modifier =
         Modifier
@@ -305,37 +312,7 @@ private fun ColumnScope.SimulatorLine(state: SimulatorState?, seeFullStats: () -
                 }
             }
 
-            val focusRequester = remember { FocusRequester() }
-            LaunchedEffect(focusRequester) {
-                delay(100.milliseconds)
-                focusRequester.requestFocus()
-            }
-
-            Canvas(
-                modifier = Modifier.fillMaxSize().clipToBounds()
-                    .focusable()
-                    .focusRequester(focusRequester)
-                    .onKeyEvent { keyEvent ->
-                        when (keyEvent.key) {
-                            Key.DirectionDown -> {
-                                if (keyEvent.type == KeyEventType.KeyDown) state.moveDown()
-                                true
-                            }
-
-                            Key.DirectionLeft -> {
-                                if (keyEvent.type == KeyEventType.KeyDown) state.moveLeft()
-                                true
-                            }
-
-                            Key.DirectionRight -> {
-                                if (keyEvent.type == KeyEventType.KeyDown) state.moveRight()
-                                true
-                            }
-
-                            else -> false
-                        }
-                    },
-            ) {
+            Canvas(modifier = Modifier.fillMaxSize().clipToBounds()) {
                 val spacing = (size.width / (results.size + 1)).coerceAtMost(12.sp.toPx())
                 val totalWidth = spacing * (results.size + 1)
                 val xOffset = (size.width - totalWidth) / 2 + spacing
@@ -604,9 +581,9 @@ private class SimulatorController(
                             persistModel.use4thsPlaceCalls == use4thsPlaceCalls &&
                             persistModel.methodNames.all { method -> selectedMethods.find { it.name == method } != null }
                         ) {
-                            SimulatorState(selectedMethods, persistModel, ::updateMethodStatistics)
+                            SimulatorState(selectedMethods, persistModel, ::updateMethodStatistics, ::persistModel)
                         } else {
-                            SimulatorState(selectedMethods, stage, ::updateMethodStatistics, use4thsPlaceCalls)
+                            SimulatorState(selectedMethods, stage, ::updateMethodStatistics, ::persistModel, use4thsPlaceCalls)
                         }
 
                         SimulatorMethodsModel(
@@ -652,9 +629,11 @@ private class SimulatorController(
 
     fun onCleared() {
         (_uiState.value as? SimulatorMethodsModel)?.state?.persist()
-            ?.let { persistModel ->
-                methodRepository.persistSimulatorModel(persistModel)
-            }
+            ?.let { persistModel(it) }
+    }
+
+    private fun persistModel(model: PersistedSimulatorState) {
+        methodRepository.persistSimulatorModel(model)
     }
 
     private fun updateMethodStatistics(method: MethodWithCalls, lead: Int, error: Boolean) {

@@ -3,22 +3,18 @@ package com.jpd.methodcards.data
 import com.jpd.methodcards.domain.CallFrequency
 import com.jpd.methodcards.domain.ExtraPathType
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import org.w3c.dom.Storage
 
-class MethodCardsStoragePreferences(
-    private val storage: Storage,
-) : MethodCardsPreferences {
-    private val stage = MutableStateFlow(8)
-    private val simulatorShowTreble = MutableStateFlow(ExtraPathType.Full)
-    private val simulatorShowCourseBell = MutableStateFlow(ExtraPathType.None)
-    private val simulatorShowLeadEndNotation = MutableStateFlow(false)
-    private val simulatorCallFrequency = MutableStateFlow(CallFrequency.Regular)
-    private val simulatorHalfLeadSplicing = MutableStateFlow(false)
-    private val simulatorUse4thsPlaceCalls = MutableStateFlow(false)
+class MethodCardsStoragePreferences : MethodCardsPreferences {
+    private val stage = StorageBasedFlow(STAGE_KEY, { it.toString() }, { it?.toIntOrNull() ?: 8 })
+    private val simulatorShowTreble = EnumStorageBasedFlow<ExtraPathType>(SIMULATOR_SHOW_TREBLE_KEY)
+    private val simulatorShowCourseBell = EnumStorageBasedFlow(SIMULATOR_SHOW_COURSE_BELL_KEY, ExtraPathType.None)
+    private val simulatorShowLeadEndNotation = BooleanStorageBasedFlow(SIMULATOR_SHOW_LEAD_END_NOTATION_KEY)
+    private val simulatorCallFrequency = EnumStorageBasedFlow(SIMULATOR_CALL_FREQUENCY_KEY, CallFrequency.Regular)
+    private val simulatorHalfLeadSplicing = BooleanStorageBasedFlow(SIMULATOR_HALF_LEAD_SPLICING_KEY)
+    private val simulatorUse4thsPlaceCalls = BooleanStorageBasedFlow(SIMULATOR_USE_4THS_PLACE_CALLS_KEY)
 
     override fun observeStage(): Flow<Int> {
-        return stage
+        return stage.flow()
     }
 
     override suspend fun setStage(stage: Int) {
@@ -26,27 +22,27 @@ class MethodCardsStoragePreferences(
     }
 
     override fun observeSimulatorShowTreble(): Flow<ExtraPathType> {
-        return simulatorShowTreble
+        return simulatorShowTreble.flow()
     }
 
     override fun observeSimulatorShowCourseBell(): Flow<ExtraPathType> {
-        return simulatorShowCourseBell
+        return simulatorShowCourseBell.flow()
     }
 
     override fun observeSimulatorShowLeadEndNotation(): Flow<Boolean> {
-        return simulatorShowLeadEndNotation
+        return simulatorShowLeadEndNotation.flow()
     }
 
     override fun observeSimulatorCallFrequency(): Flow<CallFrequency> {
-        return simulatorCallFrequency
+        return simulatorCallFrequency.flow()
     }
 
     override fun observeSimulatorHalfLeadSplicing(): Flow<Boolean> {
-        return simulatorHalfLeadSplicing
+        return simulatorHalfLeadSplicing.flow()
     }
 
     override fun observeSimulatorUse4thsPlaceCalls(): Flow<Boolean> {
-        return simulatorUse4thsPlaceCalls
+        return simulatorUse4thsPlaceCalls.flow()
     }
 
     override suspend fun setSimulatorShowTreble(showTreble: ExtraPathType) {
@@ -71,5 +67,15 @@ class MethodCardsStoragePreferences(
 
     override suspend fun setSimulatorUse4thsPlaceCalls(use: Boolean) {
         simulatorUse4thsPlaceCalls.value = use
+    }
+
+    companion object {
+        private const val STAGE_KEY = "stage"
+        private const val SIMULATOR_SHOW_TREBLE_KEY = "simulatorShowTreble"
+        private const val SIMULATOR_SHOW_COURSE_BELL_KEY = "simulatorShowCourseBell"
+        private const val SIMULATOR_SHOW_LEAD_END_NOTATION_KEY = "simulatorShowLeadEndNotation"
+        private const val SIMULATOR_CALL_FREQUENCY_KEY = "simulatorCallFrequency"
+        private const val SIMULATOR_HALF_LEAD_SPLICING_KEY = "simulatorHalfLeadSplicing"
+        private const val SIMULATOR_USE_4THS_PLACE_CALLS_KEY = "simulatorUse4thsPlaceCalls"
     }
 }

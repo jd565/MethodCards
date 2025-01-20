@@ -1,5 +1,6 @@
 package com.jpd.methodcards.data
 
+import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.okio.OkioSerializer
 import com.jpd.methodcards.domain.PersistedSimulatorStates
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -15,7 +16,11 @@ class SimulatorDataStoreSerializer : OkioSerializer<PersistedSimulatorStates> {
         get() = PersistedSimulatorStates()
 
     override suspend fun readFrom(source: BufferedSource): PersistedSimulatorStates {
-        return ProtoBuf.decodeFromByteArray(source.readByteArray())
+        return try {
+            ProtoBuf.decodeFromByteArray(source.readByteArray())
+        } catch (e: Exception) {
+            throw CorruptionException("Cannot read proto.", e)
+        }
     }
 
     override suspend fun writeTo(t: PersistedSimulatorStates, sink: BufferedSink) {

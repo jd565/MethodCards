@@ -45,12 +45,14 @@ internal class SimulatorState private constructor(
     val placeMethodCounts: Map<Int, MutableMap<MethodWithCalls, Pair<Int, Int>>>,
     persistedState: PersistedSimulatorState?,
     private val updateStatistics: (MethodWithCalls, Int, Boolean) -> Unit,
+    private val persistState: (PersistedSimulatorState) -> Unit,
     private val use4thsPlaceCalls: Boolean,
 ) {
     constructor(
         methods: List<MethodWithCalls>,
         stage: Int,
         updateStatistics: (MethodWithCalls, Int, Boolean) -> Unit,
+        persistState: (PersistedSimulatorState) -> Unit,
         use4thsPlaceCalls: Boolean,
     ) : this(
         methods = methods,
@@ -68,12 +70,14 @@ internal class SimulatorState private constructor(
         persistedState = null,
         updateStatistics = updateStatistics,
         use4thsPlaceCalls = use4thsPlaceCalls,
+        persistState = persistState,
     )
 
     constructor(
         methods: List<MethodWithCalls>,
         persistedState: PersistedSimulatorState,
         updateStatistics: (MethodWithCalls, Int, Boolean) -> Unit,
+        persistState: (PersistedSimulatorState) -> Unit,
     ) : this(
         methods = persistedState.methodNames.map { name -> methods.first { m -> m.name == name } },
         stage = persistedState.stage,
@@ -82,6 +86,7 @@ internal class SimulatorState private constructor(
         persistedState = persistedState,
         updateStatistics = updateStatistics,
         use4thsPlaceCalls = persistedState.use4thsPlaceCalls,
+        persistState= persistState
     )
 
     val rowCount: Int get() = _rowCount
@@ -216,6 +221,9 @@ internal class SimulatorState private constructor(
             calculateCourseBells(rows.last().nextRow, leadEndPlace)
             _calls.clear()
             _calls.addAll(method.calls)
+        }
+        if (idx == 1) {
+            persistState(persist())
         }
         val notation = method.fullNotation.notation
 

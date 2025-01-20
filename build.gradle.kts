@@ -10,3 +10,8 @@ plugins {
     alias(libs.plugins.androidx.room) apply false
     alias(libs.plugins.ksp) apply false
 }
+
+tasks.register<Exec>("buildSite") {
+    dependsOn(":composeApp:wasmJsBrowserDistribution")
+    commandLine("sh", "-c", "rm -rf docs/* && cp -r composeApp/build/dist/wasmJs/productionExecutable/* docs/. && cp docs/index.html docs/404.html")
+}
