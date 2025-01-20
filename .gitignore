@@ -16,3 +16,4 @@ Pods/
 .kotlin
 __pycache__
 /composeApp/release/
+/iosApp/iosApp/GoogleService-Info.plist
