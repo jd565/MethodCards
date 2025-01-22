@@ -16,7 +16,7 @@ import com.jpd.methodcards.data.MethodLibraryVersion
 import com.jpd.methodcards.data.RoomMethodDao
 import com.jpd.methodcards.data.SimulatorDataStorePersistence
 import com.jpd.methodcards.data.SimulatorPersistence
-import com.jpd.methodcards.domain.PersistedSimulatorStates
+import com.jpd.methodcards.domain.PersistedSimulatorState
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -25,7 +25,7 @@ import kotlinx.coroutines.launch
 
 expect object MethodCardNonWebDi {
     val dataStore: DataStore<Preferences>
-    val simulatorDataStore: DataStore<PersistedSimulatorStates>
+    val simulatorDataStore: DataStore<PersistedSimulatorState>
     val databaseBuilder: RoomDatabase.Builder<AppDatabase>
 }
 

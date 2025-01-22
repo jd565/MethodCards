@@ -9,8 +9,8 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.room.Room
 import com.jpd.methodcards.data.AppDatabase
-import com.jpd.methodcards.domain.PersistedSimulatorStates
 import com.jpd.methodcards.data.SimulatorDataStoreSerializer
+import com.jpd.methodcards.domain.PersistedSimulatorState
 import okio.FileSystem
 import okio.Path.Companion.toOkioPath
 import okio.Path.Companion.toPath
@@ -32,7 +32,7 @@ actual object MethodCardNonWebDi {
         )
     }
 
-    actual val simulatorDataStore: DataStore<PersistedSimulatorStates> by lazy {
+    actual val simulatorDataStore: DataStore<PersistedSimulatorState> by lazy {
         val producePath = { appContext.filesDir.resolve("simulator.preferences_pb").absolutePath.toPath() }
 
         DataStoreFactory.create(

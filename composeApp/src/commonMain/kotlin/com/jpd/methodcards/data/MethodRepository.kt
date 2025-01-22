@@ -58,8 +58,7 @@ class MethodRepository(
 
     fun persistSimulatorModel(model: PersistedSimulatorState) {
         GlobalScope.launch {
-            val stage = preferences.observeStage().first()
-            simulatorPersistence.persistSimulatorModel(model, stage)
+            simulatorPersistence.persistSimulatorModel(model)
         }
     }
 

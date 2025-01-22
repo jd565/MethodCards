@@ -5,7 +5,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class PersistedSimulatorState(
     val methodNames: List<String> = emptyList(),
-    val stage: Int = 0,
     val place: Int = 0,
     val leadEndPlaceCounts: List<PlaceCount> = emptyList(),
     val rowCount: Int = 0,

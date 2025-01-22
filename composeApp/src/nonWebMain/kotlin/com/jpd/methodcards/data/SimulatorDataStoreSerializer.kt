@@ -2,7 +2,7 @@ package com.jpd.methodcards.data
 
 import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.okio.OkioSerializer
-import com.jpd.methodcards.domain.PersistedSimulatorStates
+import com.jpd.methodcards.domain.PersistedSimulatorState
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
@@ -11,11 +11,11 @@ import okio.BufferedSink
 import okio.BufferedSource
 
 @OptIn(ExperimentalSerializationApi::class)
-class SimulatorDataStoreSerializer : OkioSerializer<PersistedSimulatorStates> {
-    override val defaultValue: PersistedSimulatorStates
-        get() = PersistedSimulatorStates()
+class SimulatorDataStoreSerializer : OkioSerializer<PersistedSimulatorState> {
+    override val defaultValue: PersistedSimulatorState
+        get() = PersistedSimulatorState()
 
-    override suspend fun readFrom(source: BufferedSource): PersistedSimulatorStates {
+    override suspend fun readFrom(source: BufferedSource): PersistedSimulatorState {
         return try {
             ProtoBuf.decodeFromByteArray(source.readByteArray())
         } catch (e: Exception) {
@@ -23,7 +23,7 @@ class SimulatorDataStoreSerializer : OkioSerializer<PersistedSimulatorStates> {
         }
     }
 
-    override suspend fun writeTo(t: PersistedSimulatorStates, sink: BufferedSink) {
+    override suspend fun writeTo(t: PersistedSimulatorState, sink: BufferedSink) {
         sink.write(ProtoBuf.encodeToByteArray(t))
     }
 }

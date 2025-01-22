@@ -567,7 +567,6 @@ private class SimulatorController(
                     } else {
                         val selectedMethods =
                             methods.filter { it.enabledForMultiMethod }.takeIf { it.isNotEmpty() } ?: methods
-                        val stage = selectedMethods.maxOf { it.stage }
                         val selectedName =
                             when {
                                 selectedMethods.size == 1 -> selectedMethods.first().shortName(methods)
@@ -583,7 +582,7 @@ private class SimulatorController(
                         ) {
                             SimulatorState(selectedMethods, persistModel, ::updateMethodStatistics, ::persistModel)
                         } else {
-                            SimulatorState(selectedMethods, stage, ::updateMethodStatistics, ::persistModel, use4thsPlaceCalls)
+                            SimulatorState(selectedMethods, ::updateMethodStatistics, ::persistModel, use4thsPlaceCalls)
                         }
 
                         SimulatorMethodsModel(

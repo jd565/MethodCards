@@ -1,7 +1,6 @@
 package com.jpd.methodcards.data
 
 import com.jpd.methodcards.domain.PersistedSimulatorState
-import com.jpd.methodcards.domain.PersistedSimulatorStates
 import kotlinx.browser.localStorage
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromHexString
@@ -15,7 +14,7 @@ import org.w3c.dom.set
 class SimulatorStoragePersistence(
     private val storage: Storage = localStorage,
 ) : SimulatorPersistence {
-    private var states: PersistedSimulatorStates? = storage[SIMULATOR_STORAGE_KEY]?.let {
+    private var state: PersistedSimulatorState? = storage[SIMULATOR_STORAGE_KEY]?.let {
         try {
             ProtoBuf.decodeFromHexString(it)
         } catch (e: Exception) {
@@ -23,14 +22,12 @@ class SimulatorStoragePersistence(
         }
     }
     override suspend fun getSimulatorModel(stage: Int): PersistedSimulatorState? {
-        return states?.states?.get(stage)
+        return state
     }
 
-    override suspend fun persistSimulatorModel(model: PersistedSimulatorState, stage: Int) {
-        this.states = PersistedSimulatorStates(
-            states = states?.states.orEmpty().plus(stage to model)
-        )
-        storage[SIMULATOR_STORAGE_KEY] = ProtoBuf.encodeToHexString(states)
+    override suspend fun persistSimulatorModel(model: PersistedSimulatorState) {
+        this.state = model
+        storage[SIMULATOR_STORAGE_KEY] = ProtoBuf.encodeToHexString(state)
     }
 
     companion object {

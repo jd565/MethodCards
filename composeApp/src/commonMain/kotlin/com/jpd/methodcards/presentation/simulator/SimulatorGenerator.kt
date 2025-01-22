@@ -40,9 +40,7 @@ internal data class RowInformation(
 @Stable
 internal class SimulatorState private constructor(
     val methods: List<MethodWithCalls>,
-    val stage: Int,
     val place: Int,
-    val placeMethodCounts: Map<Int, MutableMap<MethodWithCalls, Pair<Int, Int>>>,
     persistedState: PersistedSimulatorState?,
     private val updateStatistics: (MethodWithCalls, Int, Boolean) -> Unit,
     private val persistState: (PersistedSimulatorState) -> Unit,
@@ -50,23 +48,12 @@ internal class SimulatorState private constructor(
 ) {
     constructor(
         methods: List<MethodWithCalls>,
-        stage: Int,
         updateStatistics: (MethodWithCalls, Int, Boolean) -> Unit,
         persistState: (PersistedSimulatorState) -> Unit,
         use4thsPlaceCalls: Boolean,
     ) : this(
         methods = methods,
-        stage = stage,
         place = methods.random().leadCycles.flatten().random(),
-        placeMethodCounts = 1.rangeTo(stage).associateWith { bell ->
-            mutableMapOf<MethodWithCalls, Pair<Int, Int>>().apply {
-                methods.forEach { method ->
-                    if (bell <= method.stage) {
-                        this[method] = Pair(0, 0)
-                    }
-                }
-            }
-        },
         persistedState = null,
         updateStatistics = updateStatistics,
         use4thsPlaceCalls = use4thsPlaceCalls,
@@ -80,15 +67,23 @@ internal class SimulatorState private constructor(
         persistState: (PersistedSimulatorState) -> Unit,
     ) : this(
         methods = persistedState.methodNames.map { name -> methods.first { m -> m.name == name } },
-        stage = persistedState.stage,
         place = persistedState.place,
-        placeMethodCounts = persistedState.placeMethodCounts(methods),
         persistedState = persistedState,
         updateStatistics = updateStatistics,
         use4thsPlaceCalls = persistedState.use4thsPlaceCalls,
         persistState= persistState
     )
 
+    val placeMethodCounts: Map<Int, MutableMap<MethodWithCalls, Pair<Int, Int>>> = persistedState?.placeMethodCounts(methods) ?:
+        buildMap {
+            methods.forEach { method ->
+                repeat(method.stage) { b ->
+                    getOrPut(b + 1) { mutableMapOf() }.put(method, Pair(0, 0))
+                }
+        }
+    }
+
+    val stage = methods.maxOf { it.stage }
     val rowCount: Int get() = _rowCount
     private var _rowCount by mutableIntStateOf(persistedState?.rowCount ?: 0)
     val errorCount: Int get() = _errorCount
@@ -185,10 +180,10 @@ internal class SimulatorState private constructor(
     fun persist(): PersistedSimulatorState {
         return PersistedSimulatorState(
             methodNames = methods.map { it.name },
-            stage = stage,
             place = place,
-            leadEndPlaceCounts = List(stage) {
-                val places = placeMethodCounts[it + 1]!!
+            leadEndPlaceCounts = placeMethodCounts.entries
+                .sortedBy { it.key }
+                .map { (_, places) ->
                 PersistedSimulatorState.PlaceCount(
                     buildMap {
                         places.forEach { (method, counts) ->

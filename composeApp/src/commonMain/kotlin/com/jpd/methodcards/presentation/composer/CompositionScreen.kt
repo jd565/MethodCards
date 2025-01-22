@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenuItem
@@ -38,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import com.jpd.methodcards.data.MethodRepository
 import com.jpd.methodcards.domain.MethodWithCalls
 import com.jpd.methodcards.domain.Row
-import com.jpd.methodcards.domain.toBellChar
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -74,7 +71,7 @@ fun CompositionScreen(
 private fun CompositionView(
     model: CompositionUiModel,
     modifier: Modifier,
-    setCourseConstruction: (Int, String) -> Unit,
+    setCourseConstruction: (String) -> Unit,
     setStage: (Int) -> Unit,
 ) {
     Column(modifier) {
@@ -139,40 +136,27 @@ private fun CompositionView(
             }
 
             ProvideTextStyle(TextStyle(fontFamily = FontFamily.Monospace)) {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    item { Text("") }
-                    item { Text(model.callingPositionOrder.joinToString(" ")) }
-                    item { Text("") }
-                    model.courses.forEachIndexed { idx, course ->
-                        item {
-                            Text(course.courseEnd.row.joinToString("") { it.toBellChar() })
-                        }
-                        item {
-                            Text(
-                                model.callingPositionOrder.joinToString(" ") { course.calls[it] ?: " " }
-                            )
-                        }
-                        item(key = "Input-$idx") {
-                            OutlinedTextField(
-                                course.methodsAndCalls,
-                                onValueChange = {
-                                    setCourseConstruction(idx, it)
-                                },
-                            )
-                        }
+                Column {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Box(Modifier.weight(1f))
+                        Text(modifier = Modifier.weight(1f), text = model.callingPositionOrder.joinToString(" "))
+                        Box(Modifier.weight(1f))
                     }
-                    item {
-                        Text("")
-                    }
-                    item { Text("") }
-                    item(key = "Input-${model.courses.size}") {
-                        OutlinedTextField(
-                            "",
-                            onValueChange = { setCourseConstruction(model.courses.size, it) },
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            modifier = Modifier.weight(1f),
+                            text = model.courses.joinToString("\n") { it.courseEnd.row.joinToString("") },
                         )
+                        Text(
+                            modifier = Modifier.weight(1f),
+                            text = model.courses.joinToString("\n") { course ->
+                                model.callingPositionOrder.joinToString(" ") { course.calls[it] ?: " " }
+                            }
+                        )
+                        OutlinedTextField(
+                            modifier = Modifier.weight(1f),
+                            value = model.courses.joinToString("\n") { it.methodsAndCalls },
+                            onValueChange = setCourseConstruction)
                     }
                 }
             }
@@ -326,15 +310,9 @@ private class CompositionController(
         }
     }
 
-    fun setCourseConstruction(course: Int, construction: String) {
-        courseConstructions.update { current ->
-            val c = current.toMutableList()
-            if (course < c.size) {
-                c[course] = construction
-            } else {
-                c.add(construction)
-            }
-            c
+    fun setCourseConstruction(construction: String) {
+        courseConstructions.update {
+            construction.split("\n")
         }
     }
 

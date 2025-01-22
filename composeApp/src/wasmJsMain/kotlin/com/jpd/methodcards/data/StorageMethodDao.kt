@@ -16,26 +16,6 @@ class StorageMethodDao : MethodDao {
     private val methodsByName = MutableStateFlow(emptyMap<String, MethodWithCalls>())
     private var magicByName = emptyMap<String, Int>()
 
-    // private val selectedMethods = MutableStateFlow(LinkedHashSet(
-    //     // storage.getItem(SELECTED_METHODS_KEY)?.split(",") ?: emptyList()
-    //     emptyList<String>()
-    // ))
-    // private val multiMethodEnabledMethods = MutableStateFlow(
-    //     // storage.getItem(MULTI_METHOD_ENABLED_METHODS_KEY)?.split(",")?.toSet() ?: emptySet()
-    //     emptySet<String>()
-    // )
-    //     private val multiMethodFrequency = MutableStateFlow(
-    //         // storage.getItem(MULTI_METHOD_FREQUENCY_KEY)?.split(",")?.associate {
-    //         //     val (name, frequency) = it.split(":")
-    //         //     name to MethodFrequency.valueOf(frequency)
-    //         // } ?: emptyMap()
-    //         emptyMap<String, MethodFrequency>()
-    //     )
-    // private val blueLineMethod = MutableStateFlow(
-    //     // storage.getItem(BLUE_LINE_METHOD_KEY) ?: ""
-    //     ""
-    // )
-
     private val selectedMethods = StorageBasedFlow(
         SELECTED_METHODS_KEY,
         { it.joinToString(",") },
@@ -86,18 +66,18 @@ class StorageMethodDao : MethodDao {
             blueLineMethod.flow(),
         ) { selected, all, mmeSet, mmfMap, bleStr ->
             selected.mapNotNull { name ->
-                // val mme = name in mmeSet
-                // val mmf = mmfMap[name] ?: MethodFrequency.Regular
-                // val ble = name == bleStr
-                // if (mme || ble || mmf != MethodFrequency.Regular) {
-                //     all[name]?.copy(
-                //         enabledForMultiMethod = mme,
-                //         multiMethodFrequency = mmf,
-                //         enabledForBlueline = ble,
-                //     )
-                // } else {
+                val mme = name in mmeSet
+                val mmf = mmfMap[name] ?: MethodFrequency.Regular
+                val ble = name == bleStr
+                if (mme || ble || mmf != MethodFrequency.Regular) {
+                    all[name]?.copy(
+                        enabledForMultiMethod = mme,
+                        multiMethodFrequency = mmf,
+                        enabledForBlueline = ble,
+                    )
+                } else {
                     all[name]
-                // }
+                }
             }
         }
     }
