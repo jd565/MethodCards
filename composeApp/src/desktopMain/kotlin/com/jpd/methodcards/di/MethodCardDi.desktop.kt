@@ -11,7 +11,6 @@ import androidx.room.RoomDatabase
 import com.jpd.methodcards.data.AppDatabase
 import com.jpd.methodcards.data.SimulatorDataStoreSerializer
 import com.jpd.methodcards.domain.PersistedSimulatorState
-import com.jpd.methodcards.domain.PersistedSimulatorStates
 import okio.FileSystem
 import okio.Path.Companion.toOkioPath
 import okio.Path.Companion.toPath

@@ -21,26 +21,26 @@ data class FullMethodCall(
     /**
      * The lead end that occurs after calling this call
      */
-    val leadEnd: List<Int> by lazy {
-        lead.lead.last().row
+    val leadEnd: Row by lazy {
+        lead.lead.last()
     }
 
     /**
      * Transpose to apply to a plain lead to change it to a called lead
      */
-    val leadEndTranspose: List<Int> by lazy {
-        List(stage) { idx ->
+    val leadEndTranspose: Row by lazy {
+        Row(stage) { idx ->
             val affected = leadEnd[idx]
-            plainLeadEnd.row.indexOf(affected) + 1
+            plainLeadEnd.indexOf(affected) + 1
         }
     }
 
     val affectedBells: List<Int> by lazy {
-        leadEndTranspose.mapIndexedNotNull { idx, bell ->
-            if (bell == idx + 1) {
-                null
-            } else {
-                plainLeadEnd.row[idx]
+        buildList {
+            leadEndTranspose.row.forEachIndexed { idx, bell ->
+                if (bell != idx + 1) {
+                    add(plainLeadEnd.row[idx])
+                }
             }
         }
     }
@@ -97,7 +97,7 @@ enum class MethodFrequency(val frequency: Int) {
 data class LeadWithCalls(
     val method: MethodWithCalls,
     val calls: List<Pair<Int, FullMethodCall?>>,
-    val leadEnd: List<Int>,
+    val leadEnd: Row,
 ) {
     fun debugString(): String = "${method.debugName} - ${calls.joinToString { "${it.second?.name} @ ${it.first}" }}"
 }
@@ -128,12 +128,12 @@ data class MethodWithCalls(
     }
 
     val huntBells: List<Int> by lazy {
-        leadEnd.row.mapIndexedNotNull { idx, bell ->
+        buildList {
+        leadEnd.row.forEachIndexed { idx, bell ->
             if (bell == idx + 1) {
-                idx + 1
-            } else {
-                null
+                add(idx + 1)
             }
+        }
         }
     }
 
@@ -265,8 +265,8 @@ data class MethodWithCalls(
                 }
             }
         }.map { calls ->
-            var le = leadEnd.row
-            calls.fold(leadEnd.row) { le, (idx, call) ->
+            val le = leadEnd
+            calls.fold(leadEnd) { le, (idx, call) ->
                 call?.let {
                     call.leadEndTranspose.map { le[it - 1] }
                 } ?: le
@@ -282,15 +282,14 @@ data class MethodWithCalls(
     private fun generateMethod(): List<Lead> {
         val full = fullNotation
 
-        val rounds = Row.rounds(stage)
-        var row = rounds
+        var row = Row.rounds(stage)
         val leads = mutableListOf<Lead>()
 
         do {
             val lead = full.sequence(row).toList()
             leads.add(Lead(lead))
             row = lead.last()
-        } while (row != rounds)
+        } while (!row.isRounds())
 
         return leads
     }
@@ -317,22 +316,5 @@ data class MethodWithCalls(
     }
 }
 
-fun Int.toBellChar(): String = when (this) {
-    1 -> "1"
-    2 -> "2"
-    3 -> "3"
-    4 -> "4"
-    5 -> "5"
-    6 -> "6"
-    7 -> "7"
-    8 -> "8"
-    9 -> "9"
-    10 -> "0"
-    11 -> "E"
-    12 -> "T"
-    13 -> "A"
-    14 -> "B"
-    15 -> "C"
-    16 -> "D"
-    else -> error("Invalid bell digit: $this")
-}
+private val bellChars = arrayOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "E", "T", "A", "B", "C", "D")
+fun Int.toBellChar(): String = bellChars[this - 1]

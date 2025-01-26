@@ -245,7 +245,7 @@ private class CompositionController(
                     }
                 }
 
-                var row = Row.rounds(stage).row
+                var row = Row.rounds(stage)
                 val r = "[A-Z][^A-Z]*".toRegex()
                 val usedMethods = mutableListOf<MethodWithCalls>()
                 val usedCallingPositions = mutableSetOf<String>()
@@ -266,7 +266,7 @@ private class CompositionController(
                             else -> null
                         }
 
-                        val le = ce?.leadEnd ?: method.leadEnd.row
+                        val le = ce?.leadEnd ?: method.leadEnd
                         row = le.map { row[it - 1] }
                         val call = if (bob) "-" else if (single) "s" else null
                         if (call != null) {
@@ -275,14 +275,13 @@ private class CompositionController(
                             calls[callingPosition] = call
                         }
                     }
-                    CourseInformation(Row(row), c, calls)
+                    CourseInformation(row, c, calls)
                 }
                 val callingPositionOrder = buildList {
                     val method = usedMethods.firstOrNull()
                     if (method != null) {
-                        val rounds = Row.rounds(stage).row
-                        row = Row.rounds(stage).row
-                        val le = method.leadEnd.row
+                        row = Row.rounds(stage)
+                        val le = method.leadEnd
                         val be = method.callIndexes(false).values.asSequence().flatten().firstOrNull { it.name == "Bob" }?.leadEnd ?: le
 
                         do {
@@ -293,11 +292,7 @@ private class CompositionController(
                             if (cp in usedCallingPositions) {
                                 add(cp)
                             }
-                        } while (row != rounds)
-
-                        if (remove("H")) {
-                            add("H")
-                        }
+                        } while (!row.isRounds())
                     }
                 }
                 CompositionUiModel.Methods(

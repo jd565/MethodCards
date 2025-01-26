@@ -1,5 +1,6 @@
 package com.jpd.methodcards.presentation.simulator
 
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -16,21 +17,22 @@ import com.jpd.methodcards.domain.PersistedSimulatorState
 import com.jpd.methodcards.domain.Row
 import kotlin.collections.set
 
+@Immutable
 internal data class RowInformation(
-    private val row: List<Int>,
+    private val row: Row,
     val placeIndex: Int,
     val trebleIndex: Int,
     val courseBell1Index: Int,
     val courseBell2Index: Int,
-    val nextRow: List<Int>,
+    val nextRow: Row,
     val nextPlaceIndex: Int,
     val isLeadEnd: Boolean,
     val call: String?,
     val leadEndNotation: String?,
 ) {
     fun persist() = PersistedSimulatorState.RowInformation(
-        row,
-        nextRow,
+        row.row.toList(),
+        nextRow.row.toList(),
         isLeadEnd,
         call,
         leadEndNotation,
@@ -265,7 +267,7 @@ internal class SimulatorState private constructor(
         }
 
         val currentRow = rows.last().nextRow
-        val nextRow = Row(currentRow).nextRow(pn)
+        val nextRow = currentRow.nextRow(pn)
 
         if (rows.size > 100) {
             rows.removeAt(0)
@@ -284,8 +286,8 @@ internal class SimulatorState private constructor(
             trebleIndex = currentRow.indexOf(1),
             courseBell1Index = currentRow.indexOf(courseBells.first),
             courseBell2Index = currentRow.indexOf(courseBells.second),
-            nextRow = nextRow.row,
-            nextPlaceIndex = nextRow.row.indexOf(place),
+            nextRow = nextRow,
+            nextPlaceIndex = nextRow.indexOf(place),
             isLeadEnd = isLeadEnd,
             call = callDisplay,
             leadEndNotation = leadEndNotation,
@@ -305,17 +307,17 @@ internal class SimulatorState private constructor(
         val nextRow = currentRow.nextRow(pn)
 
         val (methodName, leadEndNotation) = if (methods.size != 1) methodCall(method) else null to null
-        calculateCourseBells(currentRow.row, leadEndPlace)
+        calculateCourseBells(currentRow, leadEndPlace)
 
         idx++
         return RowInformation(
-            row = currentRow.row,
-            placeIndex = currentRow.row.indexOf(place),
-            trebleIndex = currentRow.row.indexOf(1),
-            courseBell1Index = currentRow.row.indexOf(courseBells.first),
-            courseBell2Index = currentRow.row.indexOf(courseBells.second),
-            nextRow = nextRow.row,
-            nextPlaceIndex = nextRow.row.indexOf(place),
+            row = currentRow,
+            placeIndex = currentRow.indexOf(place),
+            trebleIndex = currentRow.indexOf(1),
+            courseBell1Index = currentRow.indexOf(courseBells.first),
+            courseBell2Index = currentRow.indexOf(courseBells.second),
+            nextRow = nextRow,
+            nextPlaceIndex = nextRow.indexOf(place),
             isLeadEnd = true,
             call = methodName,
             leadEndNotation = leadEndNotation,
@@ -338,7 +340,7 @@ internal class SimulatorState private constructor(
         )
     }
 
-    private fun calculateCourseBells(row: List<Int>, leadEndPlace: Int) {
+    private fun calculateCourseBells(row: Row, leadEndPlace: Int) {
         var lower = leadEndPlace - 2
         if (lower <= method.huntBells.size) {
             lower = method.huntBells.size + 1
@@ -387,12 +389,12 @@ private fun PersistedSimulatorState.snapshotStateRows(): SnapshotStateList<RowIn
         rows.forEach {
             list.add(
                 RowInformation(
-                    it.row,
+                    Row(it.row.toIntArray()),
                     it.row.indexOf(place),
                     it.row.indexOf(1),
                     -1,
                     -1,
-                    it.nextRow,
+                    Row(it.nextRow.toIntArray()),
                     it.nextRow.indexOf(place),
                     it.isLeadEnd,
                     it.call,
@@ -415,7 +417,7 @@ private fun PersistedSimulatorState.LeadWithCalls.toLeadWithCall(methods: List<M
     return LeadWithCalls(
         method,
         calls,
-        emptyList(),
+        Row(intArrayOf()),
     )
 }
 

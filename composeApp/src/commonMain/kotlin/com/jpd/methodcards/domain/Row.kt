@@ -4,12 +4,13 @@ import kotlin.jvm.JvmInline
 
 @JvmInline
 value class Row(
-    val row: List<Int>,
+    val row: IntArray,
 ) {
+    constructor(stage: Int, init: (Int) -> Int) : this(IntArray(stage) { init(it) })
     fun nextRow(notation: String): Row {
         val r = if (notation == "-") {
             // full swap
-            List(row.size) { idx ->
+            IntArray(row.size) { idx ->
                 if (idx % 2 == 0) {
                     row[idx + 1]
                 } else {
@@ -23,7 +24,7 @@ value class Row(
             var high: Int = digits[highIdx]
             var finished = false
 
-            List(row.size) { idx ->
+            IntArray(row.size) { idx ->
                 if (finished) {
                     check(idx >= high)
                     if ((idx - high) % 2 == 0) {
@@ -51,8 +52,35 @@ value class Row(
         return Row(r)
     }
 
+    operator fun get(idx: Int): Int = row[idx]
+
+    fun map(transform: (Int) -> Int): Row {
+        val array = IntArray(row.size) {
+            transform(row[it])
+        }
+        return Row(array)
+    }
+
+    fun mapIndexed(transform: (Int, Int) -> Int): Row {
+        val array = IntArray(row.size) {
+            transform(it, row[it])
+        }
+        return Row(array)
+    }
+
+    fun indexOf(bell: Int): Int = row.indexOf(bell)
+
+    fun isRounds(): Boolean {
+        row.forEachIndexed { index, i ->
+            if (i != index + 1) {
+                return false
+            }
+        }
+        return true
+    }
+
     companion object {
-        fun rounds(stage: Int): Row = Row(List(stage) { it + 1 })
+        fun rounds(stage: Int): Row = Row(IntArray(stage) { it + 1 })
     }
 }
 

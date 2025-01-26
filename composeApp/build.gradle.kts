@@ -92,12 +92,16 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
+            implementation(compose.material3AdaptiveNavigationSuite)
             implementation(compose.ui)
             implementation(libs.kotlinx.coroutines.core)
             implementation(compose.components.resources)
             implementation(compose.components.uiToolingPreview)
             implementation(libs.navigation.compose)
             implementation(libs.kotlinx.serialization.proto)
+            implementation("org.jetbrains.compose.material3.adaptive:adaptive:1.0.1")
+            implementation("org.jetbrains.compose.material3.adaptive:adaptive-layout:1.0.1")
+            implementation("org.jetbrains.compose.material3.adaptive:adaptive-navigation:1.0.1")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

@@ -22,17 +22,22 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.layout.AnimatedPane
+import androidx.compose.material3.adaptive.layout.PaneAdaptedValue
+import androidx.compose.material3.adaptive.layout.SupportingPaneScaffold
+import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldRole
+import androidx.compose.material3.adaptive.navigation.rememberSupportingPaneScaffoldNavigator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -67,6 +72,7 @@ private const val BlueLineExplainer = "On this screen you can select an individu
     "to display the whole blue line for this method.\n\n" +
     "You can use the settings to change the style of the blue line used."
 
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 fun BlueLineScreen(
     modifier: Modifier = Modifier,
@@ -80,13 +86,40 @@ fun BlueLineScreen(
     val model = controller.uiState.collectAsState().value
 
     if (model != null) {
-        BlueLineView(
-            model = model,
-            modifier = modifier,
-            selectMethod = remember(controller) { controller::selectMethod },
-            settingsClicked = showBlueLineBottomSheet,
-            addMethodClicked = navigateToAppSettings,
-            onClose = navigateBack,
+        val navigator = rememberSupportingPaneScaffoldNavigator()
+        // BackHandler(navigator.canNavigateBack()) {
+        //     navigator.navigateBack()
+        // }
+
+        SupportingPaneScaffold(
+            directive = navigator.scaffoldDirective,
+            value = navigator.scaffoldValue,
+            mainPane = {
+                AnimatedPane {
+                    BlueLineView(
+                        model = model,
+                        modifier = modifier,
+                        selectMethod = { navigator.navigateTo(ThreePaneScaffoldRole.Secondary) },
+                        settingsClicked = showBlueLineBottomSheet,
+                        addMethodClicked = navigateToAppSettings,
+                        onClose = navigateBack,
+                        canSelectMethod = navigator.scaffoldValue.secondary == PaneAdaptedValue.Hidden,
+                    )
+                }
+            },
+            supportingPane = {
+                AnimatedPane {
+                    BlueLineMethodList(
+                        model = model,
+                        selectMethod = remember(controller, navigator) {
+                            {
+                                controller.selectMethod(it)
+                                navigator.navigateBack()
+                            }
+                                                                       },
+                    )
+                }
+            },
         )
     } else {
         Box(modifier)
@@ -97,19 +130,22 @@ fun BlueLineScreen(
 private fun BlueLineView(
     model: BlueLineUiModel,
     modifier: Modifier,
-    selectMethod: (String) -> Unit,
+    selectMethod: () -> Unit,
     settingsClicked: () -> Unit,
     addMethodClicked: () -> Unit,
     onClose: () -> Unit,
+    canSelectMethod: Boolean,
 ) {
+
     var showExplainer by remember { mutableStateOf(false) }
     Column(modifier = modifier) {
         BlueLineTopRow(
-            model,
-            { showExplainer = true },
-            settingsClicked,
-            selectMethod,
-            onClose,
+            model = model,
+            explainerClicked = { showExplainer = true },
+            settingsClicked = settingsClicked,
+            onClose = onClose,
+            selectMethod = selectMethod,
+            canSelectMethod = canSelectMethod,
         )
         if (model is BlueLineMethodsModel) {
             BlueLinePager(model.selectedMethod, modifier = Modifier.weight(1f))
@@ -138,22 +174,45 @@ private fun BlueLineView(
 }
 
 @Composable
+private fun BlueLineMethodList(
+    model: BlueLineUiModel,
+    selectMethod: (String) -> Unit,
+) {
+    if (model is BlueLineMethodsModel) {
+        Column {
+            model.methods.forEach { method ->
+                Box(
+                    modifier =
+                    Modifier
+                        .heightIn(32.dp)
+                        .fillMaxWidth()
+                        .clickable {
+                            selectMethod(method.name)
+                        }.padding(horizontal = 40.dp),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    Text(method.name)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun BlueLineTopRow(
     model: BlueLineUiModel,
     explainerClicked: () -> Unit,
     settingsClicked: () -> Unit,
-    selectMethod: (String) -> Unit,
+    selectMethod: () -> Unit,
     onClose: () -> Unit,
+    canSelectMethod: Boolean,
 ) {
-    var expanded by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier.fillMaxWidth().heightIn(56.dp).padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (model !is SingleBlueLineModel) {
-            IconButton(
-                onClick = explainerClicked,
-            ) {
+            IconButton(onClick = explainerClicked) {
                 Icon(Icons.Outlined.Info, contentDescription = "Blue Line Explainer")
             }
         } else {
@@ -161,57 +220,45 @@ private fun BlueLineTopRow(
                 Icon(Icons.Outlined.Close, contentDescription = "Close")
             }
         }
-        if (model is BlueLineMethodsModel) {
-            Box(
-                modifier = Modifier.weight(1f)
-                    .clickable { expanded = true },
-            ) {
-                Row(
-                    modifier =
+        when (model) {
+            is BlueLineMethodsModel -> {
+                val modifier = if (canSelectMethod) {
+                    Modifier.clickable(onClick = selectMethod)
+                } else {
                     Modifier
-                        .fillMaxWidth()
-                        .heightIn(48.dp)
-                        .padding(horizontal = 24.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    Text(model.selectedMethod.name)
-                    Spacer(Modifier.width(8.dp))
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                 }
-                DropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                    modifier = Modifier.fillMaxWidth(),
-                    content = {
-                        model.methods.forEach { method ->
-                            Box(
-                                modifier =
-                                Modifier
-                                    .heightIn(32.dp)
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        expanded = false
-                                        selectMethod(method.name)
-                                    }.padding(horizontal = 40.dp),
-                                contentAlignment = Alignment.CenterStart,
-                            ) {
-                                Text(method.name)
-                            }
+                Box(
+                    modifier = Modifier.weight(1f).then(modifier),
+                ) {
+                    Row(
+                        modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(48.dp)
+                            .padding(horizontal = 24.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        Text(model.selectedMethod.name)
+                        if (canSelectMethod) {
+                            Spacer(Modifier.width(8.dp))
+                            Icon(Icons.AutoMirrored.Default.KeyboardArrowRight, contentDescription = null)
                         }
-                    },
-                )
+                    }
+                }
             }
-        } else if (model is SingleBlueLineModel) {
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Text(model.method.name)
+
+            is SingleBlueLineModel -> {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    Text(model.method.name)
+                }
             }
-        } else {
-            Box(modifier = Modifier.weight(1f))
+
+            else -> {
+                Box(modifier = Modifier.weight(1f))
+            }
         }
-        IconButton(
-            onClick = settingsClicked,
-        ) {
+        IconButton(onClick = settingsClicked) {
             Icon(Icons.Outlined.Settings, contentDescription = "Blue Line Settings")
         }
     }
@@ -256,6 +303,7 @@ private fun BlueLinePager(
     }
 }
 
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 private fun BlueLine(
     method: MethodWithCalls,
@@ -267,6 +315,7 @@ private fun BlueLine(
     val l = leads[0].lead
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
+
     BoxWithConstraints(
         modifier = modifier.horizontalScroll(scrollState)
             .draggable(
@@ -528,7 +577,7 @@ private data class SingleBlueLineModel(
     val method: MethodWithCalls,
 ) : BlueLineUiModel()
 
-private object BlueLineEmptyModel : BlueLineUiModel()
+private data object BlueLineEmptyModel : BlueLineUiModel()
 
 private class BlueLineController(
     private val scope: CoroutineScope,

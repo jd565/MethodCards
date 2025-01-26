@@ -5,6 +5,7 @@ import com.jpd.methodcards.domain.CallFrequency
 import com.jpd.methodcards.domain.FullMethodCall
 import com.jpd.methodcards.domain.LeadWithCalls
 import com.jpd.methodcards.domain.MethodWithCalls
+import com.jpd.methodcards.domain.Row
 
 /**
  * Generate a path through methods to get to a place with the minimum weight.
@@ -42,7 +43,7 @@ fun generatePath(
     println("Looking for targets ${targets.joinToString { it.debugString() }}")
     val targetPlaces = targets.map { it.place }
 
-    var leadEnd = currentMethod.leadEnd.row
+    var leadEnd = currentMethod.leadEnd
     val currentCalls = currentLead.calls.filter { (idx, _) -> idx < index }
     var options = listOf(currentCalls)
 
@@ -149,7 +150,7 @@ fun generatePath(
         path[0] to LeadWithCalls(
             targets.filter { it.place == minQueue.place }.random().method,
             emptyList(),
-            emptyList(),
+            Row(intArrayOf()),
         )
     } else {
         path[0] to path[1]
