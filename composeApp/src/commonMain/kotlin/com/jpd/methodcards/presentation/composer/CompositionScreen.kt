@@ -14,6 +14,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
@@ -33,6 +34,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.jpd.methodcards.data.MethodRepository
 import com.jpd.methodcards.domain.MethodWithCalls
 import com.jpd.methodcards.domain.Row
@@ -43,6 +45,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -59,6 +63,7 @@ fun CompositionScreen(
                 modifier = modifier,
                 setCourseConstruction = remember(controller) { controller::setCourseConstruction },
                 setStage = remember(controller) { controller::setStage },
+                setMethodSymbol = remember(controller) { controller::setMethodSymbol },
             )
         }
 
@@ -73,6 +78,7 @@ private fun CompositionView(
     modifier: Modifier,
     setCourseConstruction: (String) -> Unit,
     setStage: (Int) -> Unit,
+    setMethodSymbol: (String, String) -> Unit,
 ) {
     Column(modifier) {
         Row(
@@ -130,35 +136,48 @@ private fun CompositionView(
                 }
             }
             if (methodMapExpanded) {
-                model.methodMap.forEach {
-                    Text("${it.first} -> ${it.second}")
+                model.methodMap.forEach { mm ->
+                    Row {
+                        Text("${mm.method} -> ")
+                        OutlinedTextField(
+                            value = mm.symbol,
+                            onValueChange = { setMethodSymbol(mm.longMethodName, it) },
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
 
-            ProvideTextStyle(TextStyle(fontFamily = FontFamily.Monospace)) {
-                Column {
+            Column {
+                ProvideTextStyle(TextStyle(fontFamily = FontFamily.Monospace)) {
                     Row(modifier = Modifier.fillMaxWidth()) {
                         Box(Modifier.weight(1f))
-                        Text(modifier = Modifier.weight(1f), text = model.callingPositionOrder.joinToString(" "))
+                        Text(modifier = Modifier.weight(1f), text = model.callingPositionOrder.joinToString("  "))
                         Box(Modifier.weight(1f))
                     }
                     Row(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).alignByBaseline(),
                             text = model.courses.joinToString("\n") { it.courseEnd.row.joinToString("") },
+                            lineHeight = 28.sp,
                         )
                         Text(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f)
+                                .alignByBaseline(),
                             text = model.courses.joinToString("\n") { course ->
-                                model.callingPositionOrder.joinToString(" ") { course.calls[it] ?: " " }
-                            }
+                                model.callingPositionOrder.joinToString(" ") { course.calls[it]?.padEnd(2, ' ') ?: "  " }
+                            },
+                            lineHeight = 28.sp,
                         )
                         OutlinedTextField(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).alignByBaseline(),
                             value = model.courses.joinToString("\n") { it.methodsAndCalls },
-                            onValueChange = setCourseConstruction)
+                            onValueChange = setCourseConstruction,
+                            textStyle = LocalTextStyle.current + TextStyle(lineHeight = 28.sp),
+                        )
                     }
                 }
+                Text(text = model.summary)
             }
         }
     }
@@ -169,13 +188,20 @@ private sealed class CompositionUiModel {
 
     data class Methods(
         override val stage: Int,
-        val methodMap: List<Pair<String, String>>,
+        val methodMap: List<MethodMap>,
         val callingPositionOrder: List<String>,
         val courses: List<CourseInformation>,
+        val summary: String,
     ) : CompositionUiModel()
 
     data class Empty(override val stage: Int) : CompositionUiModel()
 }
+
+private data class MethodMap(
+    val symbol: String,
+    val method: String,
+    val longMethodName: String,
+)
 
 private data class CourseInformation(
     val courseEnd: Row,
@@ -193,29 +219,43 @@ private class CompositionController(
 
     private val stage = MutableStateFlow(8)
     private val courseConstructions = MutableStateFlow<List<String>>(emptyList())
+    private val methodSymbols = MutableStateFlow<Map<String, MethodWithCalls>>(emptyMap())
 
     init {
         scope.launch {
-            combine(
-                methodRepository.observeSelectedMethods(),
-                stage,
-            ) { allMethods, stage ->
+            val allMethods = methodRepository.observeSelectedMethods().first()
+            stage.collect { stage ->
                 val methods = allMethods.filter { it.stage == stage }
-
                 val methodShorthand = mutableMapOf<String, MethodWithCalls>()
+
                 methods.forEach { method ->
-                    var size = 0
-                    do {
-                        size += 1
-                        val t = method.name.substring(0, size)
-                    } while (t in methodShorthand)
-                    methodShorthand[method.name.substring(0, size)] = method
+                    val symbol = chooseSymbolFor(method.name, methodShorthand)
+                    methodShorthand[symbol] = method
                 }
 
-                val methodMap = methodShorthand.map { it.key to it.value.shortName(methods) }
+                methodSymbols.value = methodShorthand
+            }
+        }
 
-                Triple(methodShorthand, methodMap, stage)
-            }.combine(courseConstructions) { (methodShorthand, methodMap, stage), constructions ->
+        scope.launch {
+            val allMethods = methodRepository.observeSelectedMethods().first()
+            combine(
+                methodSymbols,
+                methodSymbols.map { map ->
+                    allMethods.mapNotNull { method ->
+                        map.firstNotNullOfOrNull { (k, v) -> if (v == method) k else null }
+                            ?.let { key ->
+                                MethodMap(
+                                    symbol = key,
+                                    method = method.shortName(allMethods),
+                                    longMethodName = method.name,
+                                )
+                            }
+                    }
+                },
+                stage,
+                ::Triple,
+            ).combine(courseConstructions) { (methodShorthand, methodMap, stage), constructions ->
                 if (methodMap.isEmpty()) {
                     return@combine CompositionUiModel.Empty(stage)
                 }
@@ -246,12 +286,14 @@ private class CompositionController(
                 }
 
                 var row = Row.rounds(stage)
-                val r = "[A-Z][^A-Z]*".toRegex()
+                val regex = "[A-Z][^A-Z]*".toRegex()
                 val usedMethods = mutableListOf<MethodWithCalls>()
                 val usedCallingPositions = mutableSetOf<String>()
+                var totalRows = 0
+                val methodRows = mutableMapOf<String, Int>()
                 val courses = constructions.map { c ->
                     val calls = mutableMapOf<String, String>()
-                    r.findAll(c).forEach { match ->
+                    regex.findAll(c).forEach { match ->
                         val part = match.value
                         val bob = part.endsWith(".")
                         val single = part.endsWith(",")
@@ -272,17 +314,29 @@ private class CompositionController(
                         if (call != null) {
                             val callingPosition = callingPositions[row.indexOf(stage).plus(1)]!!
                             usedCallingPositions.add(callingPosition)
-                            calls[callingPosition] = call
+                            calls[callingPosition] = calls.getOrElse(callingPosition) { "" } + call
                         }
+
+                        totalRows += method.changesInLead
+                        methodRows[method.name] = methodRows.getOrPut(method.name) { 0 } + method.changesInLead
                     }
-                    CourseInformation(row, c, calls)
+                    CourseInformation(row, c, calls.mapValues { (_, callString) ->
+                        if (callString.length == 1) {
+                            callString
+                        } else if (callString.all { it == '-' }) {
+                            callString.length.toString()
+                        } else {
+                            "${callString.length}*"
+                        }
+                    })
                 }
                 val callingPositionOrder = buildList {
                     val method = usedMethods.firstOrNull()
                     if (method != null) {
                         row = Row.rounds(stage)
                         val le = method.leadEnd
-                        val be = method.callIndexes(false).values.asSequence().flatten().firstOrNull { it.name == "Bob" }?.leadEnd ?: le
+                        val be = method.callIndexes(false).values.asSequence().flatten()
+                            .firstOrNull { it.name == "Bob" }?.leadEnd ?: le
 
                         do {
                             val bobbed = be.map { row[it - 1] }
@@ -295,11 +349,33 @@ private class CompositionController(
                         } while (!row.isRounds())
                     }
                 }
+                val summary = buildList {
+                    courses.lastOrNull()?.let { lastCourse ->
+                        var r = lastCourse.courseEnd
+                        var repeats = 1
+                        while (!r.isRounds()) {
+                            r = lastCourse.courseEnd.map { r[it - 1] }
+                            repeats++
+                        }
+
+                        if (repeats > 1) {
+                            add("Repeat $repeats times")
+                        }
+
+                        add("${totalRows * repeats} changes")
+                        add(
+                            methodRows.map { (method, rows) ->
+                                "${rows * repeats} $method"
+                            }.joinToString(),
+                        )
+                    }
+                }.joinToString(separator = "\n")
                 CompositionUiModel.Methods(
                     stage = stage,
                     methodMap = methodMap,
                     courses = courses,
                     callingPositionOrder = callingPositionOrder,
+                    summary = summary,
                 )
             }.collect { _uiState.value = it }
         }
@@ -313,5 +389,60 @@ private class CompositionController(
 
     fun setStage(stage: Int) {
         this.stage.value = stage
+    }
+
+    fun setMethodSymbol(method: String, updatedSymbol: String) {
+        if (updatedSymbol.isEmpty()) return
+        val symbol = updatedSymbol.lowercase()
+            .filter { it.isLetter() }
+            .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+        val symbolUpdates = mutableListOf<Pair<String, String>>()
+        methodSymbols.update { old ->
+            symbolUpdates.clear()
+            val new = old.toMutableMap()
+            val oldKey = new.firstNotNullOfOrNull { (k, v) -> if (v.name == method) k else null }
+            val fullMethod = oldKey?.let { new.remove(it) } ?: return
+            new.put(symbol, fullMethod)?.let { needsNewSymbol ->
+                val newSymbol = chooseSymbolFor(needsNewSymbol.name, new)
+                new[newSymbol] = needsNewSymbol
+                symbolUpdates.add(symbol to newSymbol)
+            }
+            symbolUpdates.add(oldKey to symbol)
+            new
+        }
+        courseConstructions.update { oldLines ->
+            oldLines.map { line ->
+                symbolUpdates
+                    .filter { (a, b) -> a != b }
+                    .fold(line) { acc, (old, new) ->
+                        var str = acc
+                        val regex = "$old([^a-z]|$)".toRegex()
+                        do {
+                            val match = regex.find(str)
+                            if (match != null) {
+                                str = buildString {
+                                    append(str.substring(0, match.range.first))
+                                    append(new)
+                                    if (match.groupValues[1].isNotEmpty()) {
+                                        append(str.substring(match.range.last))
+                                    }
+                                }
+                            }
+                        } while (match != null)
+                        str
+                    }
+            }
+        }
+    }
+
+    private fun chooseSymbolFor(name: String, current: Map<String, MethodWithCalls>): String {
+        val n = name.lowercase().replace(" ", "")
+            .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+        var size = 0
+        do {
+            size += 1
+            val t = n.substring(0, size)
+        } while (t in current)
+        return n.substring(0, size)
     }
 }

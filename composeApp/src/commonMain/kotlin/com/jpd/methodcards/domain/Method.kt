@@ -122,6 +122,9 @@ data class MethodWithCalls(
     val leadEnd: Row by lazy {
         leads.first().lead.last()
     }
+    val changesInLead: Int by lazy {
+        leads.first().lead.size - 1
+    }
 
     val leadEndNotation: String by lazy {
         fullNotation.notation.last()
@@ -232,7 +235,7 @@ data class MethodWithCalls(
 
     val debugName: String get() = shortName(emptyList())
 
-    fun shortName(methods: List<MethodWithCalls>): String {
+    fun shortName(methods: Collection<MethodWithCalls>): String {
         var final = name
         if (methods.any { it.stage != stage }) return final
         val stageName = stageName(stage)
