@@ -21,11 +21,13 @@ import kotlin.collections.set
 internal data class RowInformation(
     private val row: Row,
     val placeIndex: Int,
+    val place2Index: Int,
     val trebleIndex: Int,
     val courseBell1Index: Int,
     val courseBell2Index: Int,
     val nextRow: Row,
     val nextPlaceIndex: Int,
+    val nextPlace2Index: Int,
     val isLeadEnd: Boolean,
     val call: String?,
     val leadEndNotation: String?,
@@ -41,25 +43,26 @@ internal data class RowInformation(
 
 @Stable
 internal class SimulatorState private constructor(
-    val methods: List<MethodWithCalls>,
-    val place: Int,
+    private val methods: List<MethodWithCalls>,
     persistedState: PersistedSimulatorState?,
     private val updateStatistics: (MethodWithCalls, Int, Boolean) -> Unit,
     private val persistState: (PersistedSimulatorState) -> Unit,
     private val use4thsPlaceCalls: Boolean,
+    val handbellMode: Boolean,
 ) {
     constructor(
         methods: List<MethodWithCalls>,
         updateStatistics: (MethodWithCalls, Int, Boolean) -> Unit,
         persistState: (PersistedSimulatorState) -> Unit,
         use4thsPlaceCalls: Boolean,
+        handbellMode: Boolean,
     ) : this(
         methods = methods,
-        place = methods.random().leadCycles.flatten().random(),
         persistedState = null,
         updateStatistics = updateStatistics,
         use4thsPlaceCalls = use4thsPlaceCalls,
         persistState = persistState,
+        handbellMode = handbellMode,
     )
 
     constructor(
@@ -69,21 +72,29 @@ internal class SimulatorState private constructor(
         persistState: (PersistedSimulatorState) -> Unit,
     ) : this(
         methods = persistedState.methodNames.map { name -> methods.first { m -> m.name == name } },
-        place = persistedState.place,
         persistedState = persistedState,
         updateStatistics = updateStatistics,
         use4thsPlaceCalls = persistedState.use4thsPlaceCalls,
-        persistState= persistState
+        persistState = persistState,
+        handbellMode = persistedState.handbellMode,
     )
 
-    val placeMethodCounts: Map<Int, MutableMap<MethodWithCalls, Pair<Int, Int>>> = persistedState?.placeMethodCounts(methods) ?:
-        buildMap {
+    private val place: Int = persistedState?.place ?: methods.random().leadCycles.flatten().random()
+    private val place2: Int = persistedState?.place2 ?: run {
+        var p: Int
+        do {
+            p = methods.random().leadCycles.flatten().random()
+        } while (p == place)
+        p
+    }
+    val placeMethodCounts: Map<Int, MutableMap<MethodWithCalls, Pair<Int, Int>>> =
+        persistedState?.placeMethodCounts(methods) ?: buildMap {
             methods.forEach { method ->
                 repeat(method.stage) { b ->
                     getOrPut(b + 1) { mutableMapOf() }.put(method, Pair(0, 0))
                 }
+            }
         }
-    }
 
     val stage = methods.maxOf { it.stage }
     val rowCount: Int get() = _rowCount
@@ -118,11 +129,17 @@ internal class SimulatorState private constructor(
 
     private var madeErrorThisSection = false
 
-    private fun advance(delta: Int): Boolean {
+    private fun advance(delta: Int, delta2: Int?): Boolean {
+        if (handbellMode) {
+            check(delta2 != null)
+        }
+
         val ci = rows.last()
         val current = ci.placeIndex
         val next = ci.nextPlaceIndex
-        return if (next == current + delta) {
+        val bell1ok = next == current + delta
+        val bell2ok = !handbellMode || ci.nextPlace2Index == ci.place2Index + delta2!!
+        return if (bell1ok && bell2ok) {
             if (rows.size > 100) {
                 rows.removeAt(0)
             }
@@ -141,18 +158,16 @@ internal class SimulatorState private constructor(
         }
     }
 
-    fun moveLeft(): Boolean = advance(-1)
-
-    fun moveDown(): Boolean = advance(0)
-
-    fun moveRight(): Boolean = advance(1)
+    fun move(bell1: Int, bell2: Int?): Boolean = advance(bell1, bell2)
 
     fun updateShowTreble(showTreble: ExtraPathType) {
         _showTrebleLine.value = showTreble
     }
 
     fun updateShowCourseBell(showCourseBell: ExtraPathType) {
-        _showCourseBell.value = showCourseBell
+        if (!handbellMode) {
+            _showCourseBell.value = showCourseBell
+        }
     }
 
     fun updateShowLeadEndNotation(showLeadEndNotation: Boolean) {
@@ -168,10 +183,10 @@ internal class SimulatorState private constructor(
     }
 
     fun cacheMethods() {
-        methods.forEach {
-            it.leadEnd
-            it.leadEndOptions
-            it.callIndexes(use4thsPlaceCalls).forEach { (_, calls) ->
+        methods.forEach { method ->
+            method.leadEnd
+            method.leadEndOptions
+            method.callIndexes(use4thsPlaceCalls).forEach { (_, calls) ->
                 calls.forEach {
                     it.leadEndTranspose
                 }
@@ -186,14 +201,14 @@ internal class SimulatorState private constructor(
             leadEndPlaceCounts = placeMethodCounts.entries
                 .sortedBy { it.key }
                 .map { (_, places) ->
-                PersistedSimulatorState.PlaceCount(
-                    buildMap {
-                        places.forEach { (method, counts) ->
-                            this[method.name] = PersistedSimulatorState.PlaceCountPair(counts.first, counts.second)
-                        }
-                    },
-                )
-            },
+                    PersistedSimulatorState.PlaceCount(
+                        buildMap {
+                            places.forEach { (method, counts) ->
+                                this[method.name] = PersistedSimulatorState.PlaceCountPair(counts.first, counts.second)
+                            }
+                        },
+                    )
+                },
             rowCount = rowCount,
             errorCount = errorCount,
             currentLead = leads.first.persist(),
@@ -283,11 +298,13 @@ internal class SimulatorState private constructor(
         return RowInformation(
             row = currentRow,
             placeIndex = currentRow.indexOf(place),
+            place2Index = currentRow.indexOf(place2),
             trebleIndex = currentRow.indexOf(1),
             courseBell1Index = currentRow.indexOf(courseBells.first),
             courseBell2Index = currentRow.indexOf(courseBells.second),
             nextRow = nextRow,
             nextPlaceIndex = nextRow.indexOf(place),
+            nextPlace2Index = nextRow.indexOf(place2),
             isLeadEnd = isLeadEnd,
             call = callDisplay,
             leadEndNotation = leadEndNotation,
@@ -313,11 +330,13 @@ internal class SimulatorState private constructor(
         return RowInformation(
             row = currentRow,
             placeIndex = currentRow.indexOf(place),
+            place2Index = currentRow.indexOf(place2),
             trebleIndex = currentRow.indexOf(1),
             courseBell1Index = currentRow.indexOf(courseBells.first),
             courseBell2Index = currentRow.indexOf(courseBells.second),
             nextRow = nextRow,
             nextPlaceIndex = nextRow.indexOf(place),
+            nextPlace2Index = nextRow.indexOf(place2),
             isLeadEnd = true,
             call = methodName,
             leadEndNotation = leadEndNotation,
@@ -330,7 +349,7 @@ internal class SimulatorState private constructor(
 
     private fun chooseRandomMethod(): Pair<LeadWithCalls, LeadWithCalls> {
         val weightedMethods = methods
-            .filter { it.stage >= place }
+            .filter { it.stage >= place && it.stage >= place2 }
             .flatMap {
                 List(it.multiMethodFrequency.frequency) { _ -> it }
             }
@@ -391,11 +410,13 @@ private fun PersistedSimulatorState.snapshotStateRows(): SnapshotStateList<RowIn
                 RowInformation(
                     Row(it.row.toIntArray()),
                     it.row.indexOf(place),
+                    it.row.indexOf(place2),
                     it.row.indexOf(1),
                     -1,
                     -1,
                     Row(it.nextRow.toIntArray()),
                     it.nextRow.indexOf(place),
+                    it.nextRow.indexOf(place2),
                     it.isLeadEnd,
                     it.call,
                     it.leadEndNotation,

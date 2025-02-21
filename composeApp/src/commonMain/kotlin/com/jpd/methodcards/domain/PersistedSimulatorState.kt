@@ -15,6 +15,8 @@ data class PersistedSimulatorState(
     val index: Int = 0,
     val rows: List<RowInformation> = emptyList(),
     val use4thsPlaceCalls: Boolean = false,
+    val handbellMode: Boolean = false,
+    val place2: Int = 0,
 ) {
 
     @Serializable

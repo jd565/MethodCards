@@ -2,11 +2,20 @@ package com.jpd.methodcards.presentation.simulator
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement.Absolute.spacedBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -22,6 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -33,6 +43,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -41,6 +52,8 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.PathSegment
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -57,6 +70,7 @@ import com.jpd.methodcards.domain.MethodWithCalls
 import com.jpd.methodcards.domain.PersistedSimulatorState
 import com.jpd.methodcards.domain.toBellChar
 import com.jpd.methodcards.presentation.KeyDirection
+import com.jpd.methodcards.presentation.KeyEvent
 import com.jpd.methodcards.presentation.LocalKeyEvents
 import com.jpd.methodcards.presentation.NoMethodSelectedView
 import com.jpd.methodcards.presentation.blueline.BlueLineColors
@@ -72,12 +86,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.transformLatest
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.min
@@ -87,6 +103,8 @@ private const val SimulatorExplainer = "On this screen you can select any number
     "You are ringing the blue line of the method, and the buttons at the bottom of the screen move the blue line " +
     "up, down, or make it stay in the same place. If you press the correct button the blue line will progress, " +
     "otherwise it will stay in the same place."
+
+expect val SHOW_KEY_HINT: Boolean
 
 @Composable
 fun SimulatorScreen(
@@ -135,7 +153,7 @@ private fun SimulatorView(
             navigateToMultiMethodSelection = navigateToMultiMethodSelection,
         )
         if (model is SimulatorMethodsModel) {
-            SimulatorLine(model.state, seeFullStats = { showFullStats = true })
+            SimulatorLineAndInputs(model.state, seeFullStats = { showFullStats = true })
         } else {
             NoMethodSelectedView(modifier = Modifier.weight(1f), addMethodClicked = addMethodClicked)
         }
@@ -209,27 +227,115 @@ private fun RowCounts(state: SimulatorState, seeFullStats: () -> Unit, modifier:
 }
 
 @Composable
-private fun ColumnScope.SimulatorLine(state: SimulatorState?, seeFullStats: () -> Unit) {
+private fun SimulatorLineAndInputs(state: SimulatorState?, seeFullStats: () -> Unit) {
     val events = LocalKeyEvents.current
     val keyState by rememberUpdatedState(state)
-    DisposableEffect(events) {
-        val cb: (KeyDirection) -> Boolean = {
-            when (it) {
-                KeyDirection.Down -> keyState?.moveDown()
-                KeyDirection.Left -> keyState?.moveLeft()
-                KeyDirection.Right -> keyState?.moveRight()
-            }
-            true
-        }
-        events.add(cb)
-        onDispose { events.remove(cb) }
+    val eventCallback = remember(state?.handbellMode) { createKeyEventCallback(state) { keyState } }
+    DisposableEffect(eventCallback, events) {
+        events.add(eventCallback)
+        onDispose { events.remove(eventCallback) }
     }
-    Box(
-        modifier =
-        Modifier
-            .fillMaxWidth()
-            .weight(1f),
-    ) {
+    if (state?.handbellMode == true) {
+        Box {
+            SimulatorLine(
+                state,
+                seeFullStats,
+                modifier = Modifier.fillMaxSize(),
+            )
+            Row(modifier = Modifier.padding(8.dp).align(Alignment.BottomStart)) {
+                Column(verticalArrangement = spacedBy(8.dp)) {
+                    DirectionArrow(
+                        direction = KeyDirection.D,
+                        modifier = Modifier.size(96.dp),
+                        icon = Icons.Filled.SouthEast,
+                        eventCallback = eventCallback,
+                        keyHint = "d",
+                        tint = BlueLineColors[0],
+                    )
+                    DirectionArrow(
+                        direction = KeyDirection.S,
+                        modifier = Modifier.size(96.dp),
+                        icon = Icons.Filled.South,
+                        eventCallback = eventCallback,
+                        keyHint = "s",
+                        tint = BlueLineColors[0],
+                    )
+                    DirectionArrow(
+                        direction = KeyDirection.A,
+                        modifier = Modifier.size(96.dp),
+                        icon = Icons.Filled.SouthWest,
+                        eventCallback = eventCallback,
+                        keyHint = "a",
+                        tint = BlueLineColors[0],
+                    )
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                Column(verticalArrangement = spacedBy(8.dp)) {
+                    DirectionArrow(
+                        direction = KeyDirection.Right,
+                        modifier = Modifier.size(96.dp),
+                        icon = Icons.Filled.SouthEast,
+                        eventCallback = eventCallback,
+                        tint = BlueLineColors[1],
+                        keyHint = "j",
+                    )
+                    DirectionArrow(
+                        direction = KeyDirection.Down,
+                        modifier = Modifier.size(96.dp),
+                        icon = Icons.Filled.South,
+                        eventCallback = eventCallback,
+                        tint = BlueLineColors[1],
+                        keyHint = "k",
+                    )
+                    DirectionArrow(
+                        direction = KeyDirection.Left,
+                        modifier = Modifier.size(96.dp),
+                        icon = Icons.Filled.SouthWest,
+                        eventCallback = eventCallback,
+                        tint = BlueLineColors[1],
+                        keyHint = "l",
+                    )
+                }
+            }
+        }
+    } else {
+        Column(modifier = Modifier.fillMaxSize()) {
+            SimulatorLine(
+                state,
+                seeFullStats,
+                modifier = Modifier.fillMaxWidth().weight(1f),
+            )
+            Row(modifier = Modifier.padding(8.dp), horizontalArrangement = spacedBy(8.dp)) {
+                DirectionArrow(
+                    direction = KeyDirection.Left,
+                    modifier = Modifier.weight(1f).heightIn(96.dp),
+                    icon = Icons.Filled.SouthWest,
+                    eventCallback = eventCallback,
+                )
+                DirectionArrow(
+                    direction = KeyDirection.Down,
+                    modifier = Modifier.weight(1f).heightIn(96.dp),
+                    icon = Icons.Filled.South,
+                    eventCallback = eventCallback,
+                )
+                DirectionArrow(
+                    direction = KeyDirection.Right,
+                    modifier = Modifier.weight(1f).heightIn(96.dp),
+                    icon = Icons.Filled.SouthEast,
+                    eventCallback = eventCallback,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SimulatorLine(
+    state: SimulatorState?,
+    seeFullStats: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier) {
         if (state != null) {
             RowCounts(state, seeFullStats, modifier = Modifier.padding(start = 24.dp))
             Column(
@@ -322,7 +428,16 @@ private fun ColumnScope.SimulatorLine(state: SimulatorState?, seeFullStats: () -
                 var callTextTop = Float.MAX_VALUE
 
                 val path = ExtraBellPath(ExtraPathType.Full) { placeIndex }
-                val tPath = ExtraBellPath(state.showTrebleLine) { trebleIndex }
+                val path2 = if (state.handbellMode) ExtraBellPath(ExtraPathType.Full) { place2Index } else null
+                val tPath = ExtraBellPath(
+                    state.showTrebleLine,
+                    crossingPlaceCount = if (state.handbellMode) 2 else 1,
+                    crossingPlaceSelector = if (state.handbellMode) {
+                        { it[0] = placeIndex; it[1] = place2Index }
+                    } else {
+                        { it[0] = placeIndex }
+                    },
+                ) { trebleIndex }
                 val c1Path = ExtraBellPath(state.showCourseBell) { courseBell1Index }
                 val c2Path = ExtraBellPath(state.showCourseBell) { courseBell2Index }
 
@@ -331,18 +446,11 @@ private fun ColumnScope.SimulatorLine(state: SimulatorState?, seeFullStats: () -
                     val y = lastY - spacing
 
                     path.update(row, xOffset, spacing, y, rowIdx == state.rows.lastIndex)
+                    path2?.update(row, xOffset, spacing, y, rowIdx == state.rows.lastIndex)
                     tPath.update(row, xOffset, spacing, y, rowIdx == state.rows.lastIndex)
                     c1Path.update(row, xOffset, spacing, y, rowIdx == state.rows.lastIndex)
                     c2Path.update(row, xOffset, spacing, y, rowIdx == state.rows.lastIndex)
 
-                    // if (rowIdx == state.rows.lastIndex) {
-                    //     drawCircle(
-                    //         BlueLineColors[0],
-                    //         radius = BlueLineWidth.toPx(),
-                    //         center = Offset(xOffset + row.placeIndex * spacing, y),
-                    //     )
-                    // }
-                    //
                     if (row.isLeadEnd) {
                         drawLine(
                             Color.Black,
@@ -391,87 +499,124 @@ private fun ColumnScope.SimulatorLine(state: SimulatorState?, seeFullStats: () -
                     rowIdx--
                 }
 
-                with(c1Path) { drawPath(BlueLineColors[1], TrebleLineStroke) }
-                with(c2Path) { drawPath(BlueLineColors[2], TrebleLineStroke) }
+                with(c1Path) { drawPath(BlueLineColors[2], TrebleLineStroke) }
+                with(c2Path) { drawPath(BlueLineColors[3], TrebleLineStroke) }
                 with(tPath) { drawPath(TrebleLineColor, TrebleLineStroke) }
+                if (path2 != null) {
+                    with(path2) { drawPath(BlueLineColors[1], BlueLineStroke) }
+                }
                 with(path) { drawPath(BlueLineColors[0], BlueLineStroke) }
             }
         }
     }
+}
 
-    Row(modifier = Modifier.padding(8.dp), horizontalArrangement = spacedBy(8.dp)) {
-        Surface(
-            onClick = { state?.moveLeft() },
-            modifier =
-            Modifier
-                .weight(1f)
-                .heightIn(96.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground),
-            color = MaterialTheme.colorScheme.background,
-            shape = MaterialTheme.shapes.medium,
-            content = {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Filled.SouthWest,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                    )
+@Composable
+private fun DirectionArrow(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    eventCallback: (KeyDirection, KeyEvent) -> Boolean,
+    direction: KeyDirection,
+    tint: Color = MaterialTheme.colorScheme.onBackground,
+    keyHint: String = "",
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    Box(
+        modifier = modifier
+            .minimumInteractiveComponentSize()
+            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground), MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.background, shape = MaterialTheme.shapes.medium)
+            .clip(MaterialTheme.shapes.medium)
+            .indication(interactionSource, LocalIndication.current)
+            .hoverable(interactionSource)
+            .pointerInput(Unit) {
+                val currentContext = currentCoroutineContext()
+                awaitPointerEventScope {
+                    while (currentContext.isActive) {
+                        val change = awaitFirstDown()
+                        val press = PressInteraction.Press(change.position)
+                        interactionSource.tryEmit(press)
+                        eventCallback(direction, KeyEvent.Down)
+                        change.consume()
+                        waitForUpOrCancellation()
+                        interactionSource.tryEmit(PressInteraction.Release(press))
+                        eventCallback(direction, KeyEvent.Up)
+                    }
                 }
             },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (SHOW_KEY_HINT && keyHint.isNotEmpty()) {
+            Text(keyHint, modifier = Modifier.align(Alignment.TopCenter).padding(top = 4.dp))
+        }
+        Icon(
+            icon,
+            tint = tint,
+            contentDescription = null,
+            modifier = Modifier.size(48.dp),
         )
-        Surface(
-            onClick = { state?.moveDown() },
-            modifier =
-            Modifier
-                .weight(1f)
-                .heightIn(96.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground),
-            color = MaterialTheme.colorScheme.background,
-            shape = MaterialTheme.shapes.medium,
-            content = {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Filled.South,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                    )
+    }
+}
+
+private fun createKeyEventCallback(
+    state: SimulatorState?,
+    keyState: () -> SimulatorState?
+): (KeyDirection, KeyEvent) -> Boolean {
+    val downkeys = mutableSetOf<KeyDirection>()
+    return if (state?.handbellMode == true) {
+        { direction, event ->
+            if (event == KeyEvent.Up) {
+                downkeys.remove(direction)
+            } else if (event == KeyEvent.Down) {
+                downkeys.add(direction)
+            }
+            if (downkeys.size == 2) {
+                var bell1: Int? = null
+                var bell2: Int? = null
+                downkeys.forEach { dir ->
+                    when (dir) {
+                        KeyDirection.S -> bell1 = 0
+                        KeyDirection.A -> bell1 = -1
+                        KeyDirection.D -> bell1 = 1
+                        KeyDirection.Down -> bell2 = 0
+                        KeyDirection.Left -> bell2 = -1
+                        KeyDirection.Right -> bell2 = 1
+                    }
                 }
-            },
-        )
-        Surface(
-            onClick = { state?.moveRight() },
-            modifier =
-            Modifier
-                .weight(1f)
-                .heightIn(96.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground),
-            color = MaterialTheme.colorScheme.background,
-            shape = MaterialTheme.shapes.medium,
-            content = {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Filled.SouthEast,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                    )
+                if (bell1 != null && bell2 != null) {
+                    keyState()?.move(bell1!!, bell2)
                 }
-            },
-        )
+            }
+            true
+        }
+    } else {
+        { direction, event ->
+            if (event == KeyEvent.Down) {
+                when (direction) {
+                    KeyDirection.Down, KeyDirection.S -> keyState()?.move(0, null)
+                    KeyDirection.Left, KeyDirection.A -> keyState()?.move(-1, null)
+                    KeyDirection.Right, KeyDirection.D -> keyState()?.move(1, null)
+                }
+            }
+            true
+        }
     }
 }
 
 private class ExtraBellPath(
     private val type: ExtraPathType,
+    crossingPlaceCount: Int = 1,
+    private val crossingPlaceSelector: RowInformation.(IntArray) -> Unit = { it[0] = placeIndex },
     private val selector: RowInformation.() -> Int,
 ) {
     private val path = Path()
     private var active = false
     private var initialPosition: Offset = Offset(-1f, -1f)
+    private val crossingPlaceArray = IntArray(crossingPlaceCount)
 
     fun update(row: RowInformation, xOffset: Float, spacing: Float, y: Float, isLast: Boolean) {
         val idx = row.selector()
         if (idx < 0) return
-        val placeIdx = row.placeIndex
         val x = xOffset + idx * spacing
 
         if (isLast) {
@@ -479,7 +624,7 @@ private class ExtraBellPath(
                 initialPosition = Offset(x, y)
                 path.moveTo(x, y)
             } else if (type == ExtraPathType.Crossing) {
-                if (abs(idx - placeIdx) <= 1) {
+                if (idx.doesCross(row)) {
                     initialPosition = Offset(x, y)
                     active = true
                     path.moveTo(x, y)
@@ -489,7 +634,7 @@ private class ExtraBellPath(
             if (type == ExtraPathType.Full) {
                 path.lineTo(x, y)
             } else if (type == ExtraPathType.Crossing) {
-                if (abs(idx - placeIdx) <= 1) {
+                if (idx.doesCross(row)) {
                     if (active) {
                         path.lineTo(x, y)
                     } else {
@@ -501,6 +646,11 @@ private class ExtraBellPath(
                 }
             }
         }
+    }
+
+    private fun Int.doesCross(row: RowInformation): Boolean {
+        crossingPlaceSelector(row, crossingPlaceArray)
+        return crossingPlaceArray.any { abs(this - it) == 1 }
     }
 
     fun DrawScope.drawPath(color: Color, style: Stroke) {
@@ -524,6 +674,7 @@ private class ExtraBellPath(
                     lastPoint = Offset(segment.points[0], segment.points[1])
                     drawPoint()
                 }
+
                 PathSegment.Type.Line -> lastPoint = Offset(segment.points[2], segment.points[3])
                 PathSegment.Type.Done -> drawPoint()
                 else -> Unit
@@ -561,36 +712,44 @@ private class SimulatorController(
             combine(
                 methodRepository.observeSelectedMethods(),
                 methodCardsPreferences.observeSimulatorUse4thsPlaceCalls(),
-            ) { methods, use4thsPlaceCalls ->
-                    if (methods.isEmpty()) {
-                        SimulatorEmptyModel
-                    } else {
-                        val selectedMethods =
-                            methods.filter { it.enabledForMultiMethod }.takeIf { it.isNotEmpty() } ?: methods
-                        val selectedName =
-                            when {
-                                selectedMethods.size == 1 -> selectedMethods.first().shortName(methods)
-                                selectedMethods.size < methods.size -> "Some methods (${selectedMethods.size})"
-                                methods.isNotEmpty() -> "All methods (${methods.size})"
-                                else -> ""
-                            }
-
-                        val simulatorState = if (persistModel != null &&
-                            persistModel.methodNames.size == selectedMethods.size &&
-                            persistModel.use4thsPlaceCalls == use4thsPlaceCalls &&
-                            persistModel.methodNames.all { method -> selectedMethods.find { it.name == method } != null }
-                        ) {
-                            SimulatorState(selectedMethods, persistModel, ::updateMethodStatistics, ::persistModel)
-                        } else {
-                            SimulatorState(selectedMethods, ::updateMethodStatistics, ::persistModel, use4thsPlaceCalls)
+                methodCardsPreferences.observeSimulatorHandbellMode(),
+            ) { methods, use4thsPlaceCalls, handbellMode ->
+                if (methods.isEmpty()) {
+                    SimulatorEmptyModel
+                } else {
+                    val selectedMethods =
+                        methods.filter { it.enabledForMultiMethod }.takeIf { it.isNotEmpty() } ?: methods
+                    val selectedName =
+                        when {
+                            selectedMethods.size == 1 -> selectedMethods.first().shortName(methods)
+                            selectedMethods.size < methods.size -> "Some methods (${selectedMethods.size})"
+                            methods.isNotEmpty() -> "All methods (${methods.size})"
+                            else -> ""
                         }
 
-                        SimulatorMethodsModel(
-                            selectionDescription = selectedName,
-                            state = simulatorState,
+                    val simulatorState = if (persistModel != null &&
+                        persistModel.methodNames.size == selectedMethods.size &&
+                        persistModel.use4thsPlaceCalls == use4thsPlaceCalls &&
+                        persistModel.handbellMode == handbellMode &&
+                        persistModel.methodNames.all { method -> selectedMethods.find { it.name == method } != null }
+                    ) {
+                        SimulatorState(selectedMethods, persistModel, ::updateMethodStatistics, ::persistModel)
+                    } else {
+                        SimulatorState(
+                            selectedMethods,
+                            ::updateMethodStatistics,
+                            ::persistModel,
+                            use4thsPlaceCalls,
+                            handbellMode,
                         )
                     }
+
+                    SimulatorMethodsModel(
+                        selectionDescription = selectedName,
+                        state = simulatorState,
+                    )
                 }
+            }
                 .transformLatest { model ->
                     coroutineScope {
                         if (model is SimulatorMethodsModel) {

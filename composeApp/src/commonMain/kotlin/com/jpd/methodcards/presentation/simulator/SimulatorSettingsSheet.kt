@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import com.jpd.methodcards.data.MethodCardsPreferences
 import com.jpd.methodcards.di.MethodCardDi.getMethodCardsPreferences
@@ -49,6 +50,7 @@ fun SimulatorSettingsSheet() {
             setShowLeadEndNotation = remember(controller) { controller::setShowLeadEndNotation },
             setShowCourseBell = remember(controller) { controller::setShowCourseBells },
             setUse4thsPlaceCalls = remember(controller) { controller::setUse4thsPlaceCalls },
+            setHandbellMode = remember(controller) { controller::setHandbellMode },
         )
     } else {
         Box(Modifier.fillMaxWidth())
@@ -64,6 +66,7 @@ private fun SimulatorSettingsView(
     setShowLeadEndNotation: (Boolean) -> Unit,
     setUse4thsPlaceCalls: (Boolean) -> Unit,
     setCallFrequency: (CallFrequency) -> Unit,
+    setHandbellMode: (Boolean) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
         Text("Show treble line")
@@ -87,13 +90,14 @@ private fun SimulatorSettingsView(
             }
         }
         Spacer(Modifier.height(8.dp))
-        Text("Show course bells")
+        Text("Show course bells", modifier = Modifier.alpha(if (model.showCourseBellsEnabled) 1f else 0.5f))
         Row(horizontalArrangement = spacedBy(8.dp)) {
             ExtraPathType.entries.forEach { f ->
                 if (model.showCourseBells == f) {
                     Button(
                         modifier = Modifier.weight(1f),
                         onClick = {},
+                        enabled = model.showCourseBellsEnabled,
                     ) {
                         Text(f.name)
                     }
@@ -101,6 +105,7 @@ private fun SimulatorSettingsView(
                     OutlinedButton(
                         modifier = Modifier.weight(1f),
                         onClick = { setShowCourseBell(f) },
+                        enabled = model.showCourseBellsEnabled,
                     ) {
                         Text(f.name)
                     }
@@ -127,6 +132,17 @@ private fun SimulatorSettingsView(
             Checkbox(
                 checked = model.use4thsPlaceCalls,
                 onCheckedChange = { setUse4thsPlaceCalls(it) },
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Handbell simulation", modifier = Modifier.weight(1f))
+            Checkbox(
+                checked = model.handbellMode,
+                onCheckedChange = { setHandbellMode(it) },
             )
         }
         // Row(
@@ -167,10 +183,12 @@ private fun SimulatorSettingsView(
 private data class SimulatorSettingsState(
     val showTrebleLine: ExtraPathType,
     val showCourseBells: ExtraPathType,
+    val showCourseBellsEnabled: Boolean,
     val showLeadEndNotation: Boolean,
     val callFrequency: CallFrequency,
     val halfLeadSplicing: Boolean,
     val use4thsPlaceCalls: Boolean,
+    val handbellMode: Boolean,
 )
 
 private class SimulatorSettingsController(
@@ -189,13 +207,19 @@ private class SimulatorSettingsController(
             methodCardsPreferences.observeSimulatorCallFrequency(),
             methodCardsPreferences.observeSimulatorHalfLeadSplicing(),
             methodCardsPreferences.observeSimulatorUse4thsPlaceCalls(),
-        ) { arr -> SimulatorSettingsState(
-            arr[0] as ExtraPathType,
-            arr[1] as ExtraPathType,
-            arr[2] as Boolean,
-            arr[3] as CallFrequency,
-            arr[4] as Boolean,
-            arr[5] as Boolean,
+            methodCardsPreferences.observeSimulatorHandbellMode(),
+        ) { arr ->
+            val handbellMode = arr[6] as Boolean
+            val showCourseBells = if (handbellMode) ExtraPathType.None else arr[1] as ExtraPathType
+            SimulatorSettingsState(
+                showTrebleLine = arr[0] as ExtraPathType,
+                showCourseBells = showCourseBells,
+                showCourseBellsEnabled = !handbellMode,
+                showLeadEndNotation = arr[2] as Boolean,
+                callFrequency = arr[3] as CallFrequency,
+                halfLeadSplicing = arr[4] as Boolean,
+                use4thsPlaceCalls = arr[5] as Boolean,
+                handbellMode = handbellMode,
         ) }.onEach { _uiState.value = it }
             .launchIn(scope + dispatcher)
     }
@@ -233,6 +257,12 @@ private class SimulatorSettingsController(
     fun setHalfLeadSplicing(enabled: Boolean) {
         scope.launch {
             methodCardsPreferences.setSimulatorHalfLeadSplicing(enabled)
+        }
+    }
+
+    fun setHandbellMode(enabled: Boolean) {
+        scope.launch {
+            methodCardsPreferences.setSimulatorHandbellMode(enabled)
         }
     }
 }

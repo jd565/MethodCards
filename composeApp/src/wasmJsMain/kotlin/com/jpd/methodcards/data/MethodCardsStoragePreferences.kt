@@ -12,6 +12,7 @@ class MethodCardsStoragePreferences : MethodCardsPreferences {
     private val simulatorCallFrequency = EnumStorageBasedFlow(SIMULATOR_CALL_FREQUENCY_KEY, CallFrequency.Regular)
     private val simulatorHalfLeadSplicing = BooleanStorageBasedFlow(SIMULATOR_HALF_LEAD_SPLICING_KEY)
     private val simulatorUse4thsPlaceCalls = BooleanStorageBasedFlow(SIMULATOR_USE_4THS_PLACE_CALLS_KEY)
+    private val simulatorHandbellMode = BooleanStorageBasedFlow(SIMULATOR_HANDBELL_MODE)
 
     override fun observeStage(): Flow<Int> {
         return stage.flow()
@@ -45,6 +46,10 @@ class MethodCardsStoragePreferences : MethodCardsPreferences {
         return simulatorUse4thsPlaceCalls.flow()
     }
 
+    override fun observeSimulatorHandbellMode(): Flow<Boolean> {
+        return simulatorHandbellMode.flow()
+    }
+
     override suspend fun setSimulatorShowTreble(showTreble: ExtraPathType) {
         simulatorShowTreble.value = showTreble
     }
@@ -69,6 +74,10 @@ class MethodCardsStoragePreferences : MethodCardsPreferences {
         simulatorUse4thsPlaceCalls.value = use
     }
 
+    override suspend fun setSimulatorHandbellMode(enabled: Boolean) {
+        simulatorHandbellMode.value = enabled
+    }
+
     companion object {
         private const val STAGE_KEY = "stage"
         private const val SIMULATOR_SHOW_TREBLE_KEY = "simulatorShowTreble"
@@ -77,5 +86,6 @@ class MethodCardsStoragePreferences : MethodCardsPreferences {
         private const val SIMULATOR_CALL_FREQUENCY_KEY = "simulatorCallFrequency"
         private const val SIMULATOR_HALF_LEAD_SPLICING_KEY = "simulatorHalfLeadSplicing"
         private const val SIMULATOR_USE_4THS_PLACE_CALLS_KEY = "simulatorUse4thsPlaceCalls"
+        private const val SIMULATOR_HANDBELL_MODE = "simulatorHandbellMode"
     }
 }

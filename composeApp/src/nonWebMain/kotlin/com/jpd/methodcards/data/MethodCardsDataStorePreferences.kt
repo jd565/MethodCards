@@ -25,6 +25,7 @@ class MethodCardsDataStorePreferences(
         booleanPreferencesKey("simulator_half_lead_splice")
     private val simulatorUse4thsPlaceCallsPreference =
         booleanPreferencesKey("simulator_use_4ths_place_calls")
+    private val simulatorHandbellModePreference = booleanPreferencesKey("simulator_handbell_mode")
 
     override fun observeStage(): Flow<Int> = store.data.map { preferences ->
         preferences[stagePreference] ?: 8
@@ -76,6 +77,12 @@ class MethodCardsDataStorePreferences(
         }.distinctUntilChanged()
     }
 
+    override fun observeSimulatorHandbellMode(): Flow<Boolean> {
+        return store.data.map { preferences ->
+            preferences[simulatorHandbellModePreference] ?: false
+        }.distinctUntilChanged()
+    }
+
     override suspend fun setSimulatorShowTreble(showTreble: ExtraPathType) {
         store.edit { preferences ->
             preferences[simulatorShowTreblePreference] = showTreble.ordinal
@@ -109,6 +116,12 @@ class MethodCardsDataStorePreferences(
     override suspend fun setSimulatorUse4thsPlaceCalls(use: Boolean) {
         store.edit { preferences ->
             preferences[simulatorUse4thsPlaceCallsPreference] = use
+        }
+    }
+
+    override suspend fun setSimulatorHandbellMode(enabled: Boolean) {
+        store.edit { preferences ->
+            preferences[simulatorHandbellModePreference] = enabled
         }
     }
 

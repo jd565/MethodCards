@@ -13,10 +13,12 @@ interface MethodCardsPreferences {
     fun observeSimulatorCallFrequency(): Flow<CallFrequency>
     fun observeSimulatorHalfLeadSplicing(): Flow<Boolean>
     fun observeSimulatorUse4thsPlaceCalls(): Flow<Boolean>
+    fun observeSimulatorHandbellMode(): Flow<Boolean>
     suspend fun setSimulatorShowTreble(showTreble: ExtraPathType)
     suspend fun setSimulatorShowCourseBell(showCourseBell: ExtraPathType)
     suspend fun setSimulatorShowLeadEndNotation(show: Boolean)
     suspend fun setSimulatorCallFrequency(callFrequency: CallFrequency)
     suspend fun setSimulatorHalfLeadSplicing(halfLeadSplice: Boolean)
     suspend fun setSimulatorUse4thsPlaceCalls(use: Boolean)
+    suspend fun setSimulatorHandbellMode(enabled: Boolean)
 }

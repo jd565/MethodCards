@@ -8,6 +8,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import com.jpd.methodcards.presentation.App
 import com.jpd.methodcards.presentation.KeyDirection
+import com.jpd.methodcards.presentation.KeyEvent
 import com.jpd.methodcards.presentation.LocalKeyEvents
 
 fun main() = application {
@@ -24,15 +25,23 @@ fun main() = application {
         title = "KotlinProject",
         onPreviewKeyEvent = { event ->
             when (event.key) {
-                Key.DirectionDown -> KeyDirection.Down
-                Key.DirectionLeft -> KeyDirection.Left
-                Key.DirectionRight -> KeyDirection.Right
+                Key.DirectionDown, Key.J -> KeyDirection.Down
+                Key.DirectionLeft, Key.K -> KeyDirection.Left
+                Key.DirectionRight, Key.L -> KeyDirection.Right
+                Key.A -> KeyDirection.A
+                Key.S -> KeyDirection.S
+                Key.D -> KeyDirection.D
                 else -> null
             }?.let { dir ->
-                if (event.type == KeyEventType.KeyDown) {
+                val t = when (event.type) {
+                    KeyEventType.KeyDown -> KeyEvent.Down
+                    KeyEventType.KeyUp -> KeyEvent.Up
+                    else -> null
+                }
+                if (t != null) {
                     cbs.asReversed().fold(false) { acc, cb ->
                         if (!acc) {
-                            cb.invoke(dir)
+                            cb.invoke(dir, t)
                         } else {
                             true
                         }

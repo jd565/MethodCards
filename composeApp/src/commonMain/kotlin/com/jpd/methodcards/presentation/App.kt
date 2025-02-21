@@ -235,9 +235,15 @@ private fun darkMethodCardColors(): ColorScheme = darkColorScheme(
     surface = Color(0xFF212121),
 )
 
-internal val LocalKeyEvents = staticCompositionLocalOf { mutableListOf<(KeyDirection) -> Boolean>() }
+internal val LocalKeyEvents = staticCompositionLocalOf {
+    mutableListOf<(KeyDirection, KeyEvent) -> Boolean>()
+}
 
 enum class KeyDirection {
-    Left, Down, Right
+    Left, Down, Right, A, S, D
+}
+
+enum class KeyEvent {
+    Down, Up
 }
 
