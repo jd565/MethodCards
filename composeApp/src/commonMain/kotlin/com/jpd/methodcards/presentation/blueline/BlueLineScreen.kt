@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Close
@@ -179,7 +180,7 @@ private fun BlueLineMethodList(
     selectMethod: (String) -> Unit,
 ) {
     if (model is BlueLineMethodsModel) {
-        Column {
+        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
             model.methods.forEach { method ->
                 Box(
                     modifier =

@@ -7,5 +7,8 @@ data class CallDetails(
     val notation: PlaceNotation,
     val from: Int,
     val every: Int,
-    val cover: Int,
-)
+) {
+    val cover: Int by lazy {
+        notation.fullNotation.notation.size
+    }
+}

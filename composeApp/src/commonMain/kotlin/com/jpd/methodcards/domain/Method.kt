@@ -1,5 +1,6 @@
 package com.jpd.methodcards.domain
 
+
 data class FullMethodCall(
     val call: CallDetails,
     val ruleoffsFrom: Int,
@@ -108,12 +109,48 @@ data class MethodWithCalls(
     val stage: Int,
     val ruleoffsEvery: Int,
     val ruleoffsFrom: Int,
-    val classification: String,
+    val classification: MethodClassification,
     val calls: List<CallDetails>,
     val enabledForMultiMethod: Boolean,
     val multiMethodFrequency: MethodFrequency,
     val enabledForBlueline: Boolean,
 ) {
+    val underOverNotation: Pair<PlaceNotation, PlaceNotation>? by lazy {
+        if (huntBells != listOf(1)) return@lazy null
+        val notationSequences = placeNotation.sequences
+        if (notationSequences.size > 2) return@lazy null
+        if (notationSequences[1].size > 1) return@lazy null
+        val lead = leads.first().lead
+        val under = mutableListOf<String>()
+        val over = mutableListOf<String>()
+        notationSequences[0]
+            .forEachIndexed { idx, sequence ->
+                if (sequence == "x") {
+                    under.add("x")
+                    over.add("x")
+                } else {
+                    val tIdx = lead[idx].indexOf(1) + 1
+                    under.add(
+                        sequence.filter {
+                            val bellInt = bellChars.indexOf(it.toString()) + 1
+                            bellInt <= tIdx
+                        }.ifEmpty { "x" },
+                    )
+                    over.add(
+                        sequence.filter {
+                            val bellInt = bellChars.indexOf(it.toString()) + 1
+                            bellInt > tIdx
+                        }.ifEmpty { "x" },
+                    )
+                }
+            }
+
+        Pair(
+            PlaceNotation(listOf(under, listOf("x"))),
+            PlaceNotation(listOf(over, notationSequences[1])),
+        )
+    }
+
     val fullNotation by lazy { placeNotation.fullNotation }
 
     val leads: List<Lead> by lazy {
@@ -132,11 +169,11 @@ data class MethodWithCalls(
 
     val huntBells: List<Int> by lazy {
         buildList {
-        leadEnd.row.forEachIndexed { idx, bell ->
-            if (bell == idx + 1) {
-                add(idx + 1)
+            leadEnd.row.forEachIndexed { idx, bell ->
+                if (bell == idx + 1) {
+                    add(idx + 1)
+                }
             }
-        }
         }
     }
 
@@ -176,7 +213,8 @@ data class MethodWithCalls(
         val indexes = mutableMapOf<Int, MutableList<FullMethodCall>>()
         calls.map { call ->
             var callStartIdx = call.from - 1
-            while (callStartIdx < 0) callStartIdx += call.every
+            val every = call.every.takeIf { it > 0 } ?: leads[0].lead.size
+            while (callStartIdx < 0) callStartIdx += every
             while (callStartIdx <= baseNotation.notation.size) {
                 indexes.getOrPut(callStartIdx) { mutableListOf() }
                     .add(
@@ -190,7 +228,7 @@ data class MethodWithCalls(
                             plainLeadEnd = leadEnd,
                         ),
                     )
-                callStartIdx += call.every
+                callStartIdx += every
             }
         }
         indexes
@@ -212,24 +250,24 @@ data class MethodWithCalls(
             }
         }
             .map { call ->
-            var callStartIdx = call.from - 1
-            while (callStartIdx < 0) callStartIdx += call.every
-            while (callStartIdx <= baseNotation.notation.size) {
-                indexes.getOrPut(callStartIdx) { mutableListOf() }
-                    .add(
-                        FullMethodCall(
-                            call,
-                            ruleoffsFrom = ruleoffsFrom,
-                            ruleoffsEvery = ruleoffsEvery,
-                            startIdx = callStartIdx,
-                            baseNotation = baseNotation,
-                            stage = stage,
-                            plainLeadEnd = leadEnd,
-                        ),
-                    )
-                callStartIdx += call.every
+                var callStartIdx = call.from - 1
+                while (callStartIdx < 0) callStartIdx += call.every
+                while (callStartIdx <= baseNotation.notation.size) {
+                    indexes.getOrPut(callStartIdx) { mutableListOf() }
+                        .add(
+                            FullMethodCall(
+                                call,
+                                ruleoffsFrom = ruleoffsFrom,
+                                ruleoffsEvery = ruleoffsEvery,
+                                startIdx = callStartIdx,
+                                baseNotation = baseNotation,
+                                stage = stage,
+                                plainLeadEnd = leadEnd,
+                            ),
+                        )
+                    callStartIdx += call.every
+                }
             }
-        }
         indexes
     }
 
@@ -244,42 +282,43 @@ data class MethodWithCalls(
         }
 
         if (methods.any { it.classification != classification }) return final
-        if (classification.isNotBlank() && final.endsWith(classification)) {
-            final = final.substring(0, final.length - classification.length - 1)
+        if (classification.part.isNotBlank() && final.endsWith(classification.part)) {
+            final = final.substring(0, final.length - classification.part.length - 1)
         }
         return final
     }
 
     val leadEndOptions: List<LeadWithCalls> by lazy {
-        callIndexes.entries.sortedBy { it.key }.fold(listOf<List<Pair<Int, FullMethodCall?>>>()) { options, (idx, calls) ->
-            if (options.isEmpty()) {
-                buildList {
-                    addAll(calls.map { call -> listOf(Pair(idx, call)) })
-                    add(listOf(Pair(idx, null)))
-                    add(listOf(Pair(idx, null)))
-                }
-            } else {
-                options.flatMap { existing ->
+        callIndexes.entries.sortedBy { it.key }
+            .fold(listOf<List<Pair<Int, FullMethodCall?>>>()) { options, (idx, calls) ->
+                if (options.isEmpty()) {
                     buildList {
-                        addAll(calls.map { call -> existing + Pair(idx, call) })
-                        add(existing + Pair(idx, null))
-                        add(existing + Pair(idx, null))
+                        addAll(calls.map { call -> listOf(Pair(idx, call)) })
+                        add(listOf(Pair(idx, null)))
+                        add(listOf(Pair(idx, null)))
+                    }
+                } else {
+                    options.flatMap { existing ->
+                        buildList {
+                            addAll(calls.map { call -> existing + Pair(idx, call) })
+                            add(existing + Pair(idx, null))
+                            add(existing + Pair(idx, null))
+                        }
                     }
                 }
+            }.map { calls ->
+                val le = leadEnd
+                calls.fold(leadEnd) { le, (idx, call) ->
+                    call?.let {
+                        call.leadEndTranspose.map { le[it - 1] }
+                    } ?: le
+                }
+                LeadWithCalls(
+                    this,
+                    calls.sortedBy { it.first },
+                    le,
+                )
             }
-        }.map { calls ->
-            val le = leadEnd
-            calls.fold(leadEnd) { le, (idx, call) ->
-                call?.let {
-                    call.leadEndTranspose.map { le[it - 1] }
-                } ?: le
-            }
-            LeadWithCalls(
-                this,
-                calls.sortedBy { it.first },
-                le,
-            )
-        }
     }
 
     private fun generateMethod(): List<Lead> {
@@ -318,6 +357,3 @@ data class MethodWithCalls(
         }
     }
 }
-
-private val bellChars = arrayOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "E", "T", "A", "B", "C", "D")
-fun Int.toBellChar(): String = bellChars[this - 1]

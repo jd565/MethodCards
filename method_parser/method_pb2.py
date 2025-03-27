@@ -24,21 +24,21 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0cmethod.proto\"-\n\x0cMethodsProto\x12\x1d\n\x07methods\x18\x01 \x03(\x0b\x32\x0c.MethodProto\"\xf2\x01\n\x0bMethodProto\x12\x0c\n\x04name\x18\x01 \x02(\t\x12\x10\n\x08notation\x18\x02 \x02(\t\x12\r\n\x05stage\x18\x03 \x02(\x05\x12\x14\n\x0cruleoffsFrom\x18\x04 \x02(\x05\x12\x15\n\rruleoffsEvery\x18\x05 \x02(\x05\x12&\n\x05\x63\x61lls\x18\x06 \x03(\x0b\x32\x17.MethodProto.CallsEntry\x12\r\n\x05magic\x18\x07 \x02(\x05\x12\x16\n\x0e\x63lassification\x18\x08 \x02(\t\x1a\x38\n\nCallsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x19\n\x05value\x18\x02 \x01(\x0b\x32\n.CallProto:\x02\x38\x01\"Z\n\tCallProto\x12\x0e\n\x06symbol\x18\x01 \x02(\t\x12\x10\n\x08notation\x18\x02 \x02(\t\x12\r\n\x05\x66rom_\x18\x03 \x02(\x05\x12\r\n\x05\x65very\x18\x04 \x02(\x05\x12\r\n\x05\x63over\x18\x05 \x02(\x05')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0cmethod.proto\"-\n\x0cMethodsProto\x12\x1d\n\x07methods\x18\x01 \x03(\x0b\x32\x0c.MethodProto\"\x93\x02\n\x0bMethodProto\x12\x0c\n\x04name\x18\x01 \x02(\t\x12\x10\n\x08notation\x18\x02 \x02(\t\x12\r\n\x05stage\x18\x03 \x02(\x05\x12\x14\n\x0cruleoffsFrom\x18\x04 \x01(\x05\x12\x15\n\rruleoffsEvery\x18\x05 \x02(\x05\x12%\n\rstandardCalls\x18\x06 \x01(\x0b\x32\x0e.StandardCalls\x12\x1f\n\x0b\x63ustomCalls\x18\t \x03(\x0b\x32\n.CallProto\x12\r\n\x05magic\x18\x07 \x02(\x05\x12\x32\n\x0e\x63lassification\x18\x08 \x02(\x0e\x32\x1a.MethodClassificationProto\x12\x1d\n\x15nameHasClassification\x18\n \x01(\x08\"h\n\tCallProto\x12\x0c\n\x04name\x18\x06 \x02(\t\x12\x0e\n\x06symbol\x18\x01 \x02(\t\x12\x10\n\x08notation\x18\x02 \x02(\t\x12\r\n\x05\x66rom_\x18\x03 \x01(\x05\x12\r\n\x05\x65very\x18\x04 \x02(\x05\x12\r\n\x05\x63over\x18\x05 \x02(\x05\"K\n\rStandardCalls\x12\x13\n\x0b\x62obNotation\x18\x01 \x02(\t\x12\x16\n\x0esingleNotation\x18\x02 \x02(\t\x12\r\n\x05\x65very\x18\x03 \x02(\x05*\x98\x01\n\x19MethodClassificationProto\x12\x08\n\x04None\x10\x00\x12\x0f\n\x0bTreblePlace\x10\x01\x12\x0b\n\x07\x44\x65light\x10\x02\x12\x07\n\x03\x42ob\x10\x03\x12\x08\n\x04Jump\x10\x04\x12\x0c\n\x08\x41lliance\x10\x05\x12\n\n\x06Hybrid\x10\x06\x12\r\n\tTrebleBob\x10\x07\x12\t\n\x05Place\x10\x08\x12\x0c\n\x08Surprise\x10\t')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'method_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_METHODPROTO_CALLSENTRY']._loaded_options = None
-  _globals['_METHODPROTO_CALLSENTRY']._serialized_options = b'8\001'
+  _globals['_METHODCLASSIFICATIONPROTO']._serialized_start=525
+  _globals['_METHODCLASSIFICATIONPROTO']._serialized_end=677
   _globals['_METHODSPROTO']._serialized_start=16
   _globals['_METHODSPROTO']._serialized_end=61
   _globals['_METHODPROTO']._serialized_start=64
-  _globals['_METHODPROTO']._serialized_end=306
-  _globals['_METHODPROTO_CALLSENTRY']._serialized_start=250
-  _globals['_METHODPROTO_CALLSENTRY']._serialized_end=306
-  _globals['_CALLPROTO']._serialized_start=308
-  _globals['_CALLPROTO']._serialized_end=398
+  _globals['_METHODPROTO']._serialized_end=339
+  _globals['_CALLPROTO']._serialized_start=341
+  _globals['_CALLPROTO']._serialized_end=445
+  _globals['_STANDARDCALLS']._serialized_start=447
+  _globals['_STANDARDCALLS']._serialized_end=522
 # @@protoc_insertion_point(module_scope)

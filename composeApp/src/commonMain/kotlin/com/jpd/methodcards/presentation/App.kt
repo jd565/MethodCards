@@ -3,7 +3,6 @@ package com.jpd.methodcards.presentation
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Settings
@@ -14,8 +13,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -35,12 +37,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import androidx.window.core.layout.WindowWidthSizeClass
 import com.jpd.methodcards.presentation.blueline.BlueLineScreen
 import com.jpd.methodcards.presentation.composer.CompositionScreen
 import com.jpd.methodcards.presentation.flashcard.FlashCardScreen
 import com.jpd.methodcards.presentation.icons.Blueline
 import com.jpd.methodcards.presentation.icons.Flashcard
 import com.jpd.methodcards.presentation.icons.Simulator
+import com.jpd.methodcards.presentation.overunder.OverUnderScreen
 import com.jpd.methodcards.presentation.settings.AddMethodScreen
 import com.jpd.methodcards.presentation.settings.SettingsScreen
 import com.jpd.methodcards.presentation.simulator.SimulatorScreen
@@ -56,7 +60,8 @@ enum class MethodCardScreen {
     Settings,
     MultiMethodSelection,
     AddMethod,
-    Composition,
+    Compose,
+    OverUnder,
 }
 
 @Serializable
@@ -83,96 +88,136 @@ fun App() {
             navController.navigate(route = MethodName(it))
         }
 
-            Scaffold(
-                bottomBar = {
-                    MethodCardBottomBar(navController)
-                },
-            ) { innerPadding ->
-                NavHost(
-                    navController = navController,
-                    startDestination = MethodCardScreen.BlueLine.name,
-                    modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                ) {
-                    composable(route = MethodCardScreen.FlashCard.name) {
-                        FlashCardScreen(
-                            modifier = Modifier.fillMaxSize(),
-                            navigateToAppSettings = navigateToAppSettings,
-                            navigateToMultiMethodSelection = navigateToMultiMethodSelection,
-                        )
-                    }
-                    composable(route = MethodCardScreen.Simulator.name) {
-                        SimulatorScreen(
-                            modifier = Modifier.fillMaxSize(),
-                            {
-                                bottomSheetRoute.value = MethodCardScreen.Simulator.name
-                                showBottomSheet = true
-                            },
-                            navigateToAppSettings = navigateToAppSettings,
-                            navigateToMultiMethodSelection = navigateToMultiMethodSelection,
-                        )
-                    }
-                    composable(route = MethodCardScreen.BlueLine.name) {
-                        BlueLineScreen(
-                            modifier = Modifier.fillMaxHeight(),
-                            {},
-                            navigateToAppSettings = navigateToAppSettings,
-                            navigateBack = { navController.popBackStack() },
-                        )
-                    }
-                    composable<MethodName> { entry ->
-                        val name = entry.toRoute<MethodName>()
-                        BlueLineScreen(
-                            modifier = Modifier.fillMaxHeight(),
-                            { navigateToBlueline(name.name) },
-                            navigateToAppSettings = navigateToAppSettings,
-                            navigateBack = { navController.popBackStack() },
-                            method = name.name,
-                        )
-                    }
-                    composable(route = MethodCardScreen.Settings.name) {
-                        SettingsScreen(
-                            modifier = Modifier.fillMaxSize(),
-                            navigateToAddMethod = navigateToAddMethod,
-                            navigateToBlueline = navigateToBlueline,
-                        )
-                    }
-                    composable(route = MethodCardScreen.MultiMethodSelection.name) {
-                        MultiMethodSelectionScreen(
-                            modifier = Modifier.fillMaxSize(),
-                            onBack = { navController.popBackStack() },
-                        )
-                    }
-                    composable(route = MethodCardScreen.AddMethod.name) {
-                        AddMethodScreen(
-                            modifier = Modifier.fillMaxSize(),
-                            onBack = { navController.popBackStack() },
-                        )
-                    }
-                    composable(route = MethodCardScreen.Composition.name) {
-                        CompositionScreen(modifier = Modifier.fillMaxSize())
-                    }
+        MethodCardDrawer(navController) {
+            NavHost(
+                navController = navController,
+                startDestination = MethodCardScreen.BlueLine.name,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                composable(route = MethodCardScreen.FlashCard.name) {
+                    FlashCardScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        navigateToAppSettings = navigateToAppSettings,
+                        navigateToMultiMethodSelection = navigateToMultiMethodSelection,
+                    )
+                }
+                composable(route = MethodCardScreen.OverUnder.name) {
+                    OverUnderScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(route = MethodCardScreen.Simulator.name) {
+                    SimulatorScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        {
+                            bottomSheetRoute.value = MethodCardScreen.Simulator.name
+                            showBottomSheet = true
+                        },
+                        navigateToAppSettings = navigateToAppSettings,
+                        navigateToMultiMethodSelection = navigateToMultiMethodSelection,
+                    )
+                }
+                composable(route = MethodCardScreen.BlueLine.name) {
+                    BlueLineScreen(
+                        modifier = Modifier.fillMaxHeight(),
+                        {},
+                        navigateToAppSettings = navigateToAppSettings,
+                        navigateBack = { navController.popBackStack() },
+                    )
+                }
+                composable<MethodName> { entry ->
+                    val name = entry.toRoute<MethodName>()
+                    BlueLineScreen(
+                        modifier = Modifier.fillMaxHeight(),
+                        { navigateToBlueline(name.name) },
+                        navigateToAppSettings = navigateToAppSettings,
+                        navigateBack = { navController.popBackStack() },
+                        method = name.name,
+                    )
+                }
+                composable(route = MethodCardScreen.Settings.name) {
+                    SettingsScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        navigateToAddMethod = navigateToAddMethod,
+                        navigateToBlueline = navigateToBlueline,
+                    )
+                }
+                composable(route = MethodCardScreen.MultiMethodSelection.name) {
+                    MultiMethodSelectionScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(route = MethodCardScreen.AddMethod.name) {
+                    AddMethodScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(route = MethodCardScreen.Compose.name) {
+                    CompositionScreen(modifier = Modifier.fillMaxSize())
                 }
             }
 
-            if (showBottomSheet) {
-                ModalBottomSheet(
-                    sheetState = bottomSheetState,
-                    onDismissRequest = {
-                        showBottomSheet = false
-                    },
-                ) {
-                    when (bottomSheetRoute.value) {
-                        MethodCardScreen.Simulator.name -> {
-                            SimulatorSettingsSheet()
-                        }
+        }
+
+        if (showBottomSheet) {
+            ModalBottomSheet(
+                sheetState = bottomSheetState,
+                onDismissRequest = {
+                    showBottomSheet = false
+                },
+            ) {
+                when (bottomSheetRoute.value) {
+                    MethodCardScreen.Simulator.name -> {
+                        SimulatorSettingsSheet()
                     }
-                    // MethodCardBottomSheet()
                 }
+                // MethodCardBottomSheet()
             }
+        }
     }
+}
+
+@Composable
+private fun MethodCardDrawer(navController: NavController, content: @Composable () -> Unit) {
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
+
+    val adaptiveInfo = currentWindowAdaptiveInfo()
+    val customNavSuiteType = with(adaptiveInfo) {
+        if (windowSizeClass.windowWidthSizeClass == WindowWidthSizeClass.EXPANDED) {
+            NavigationSuiteType.NavigationDrawer
+        } else {
+            NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(adaptiveInfo)
+        }
+        NavigationSuiteType.NavigationBar
+    }
+
+    NavigationSuiteScaffold(
+        navigationSuiteItems = {
+            listOf(
+                MethodCardScreen.BlueLine to Icons.Filled.Blueline,
+                MethodCardScreen.FlashCard to Icons.Filled.Flashcard,
+                // MethodCardScreen.OverUnder to Icons.Filled.ShoppingCart,
+                MethodCardScreen.Simulator to Icons.Filled.Simulator,
+                MethodCardScreen.Compose to Icons.Filled.Build,
+                MethodCardScreen.Settings to Icons.Filled.Settings,
+            ).forEach { (screen, icon) ->
+                item(
+                    icon = { Icon(icon, contentDescription = null) },
+                    label = { Text(screen.name) },
+                    selected = currentDestination?.hierarchy?.any { it.route == screen.name } == true,
+                    onClick = {
+                        navController.navigateTo(screen)
+                    },
+                )
+            }
+        },
+        layoutType = customNavSuiteType,
+        content = content,
+    )
 }
 
 @Composable
@@ -184,7 +229,7 @@ private fun MethodCardBottomBar(navController: NavController, modifier: Modifier
             MethodCardScreen.BlueLine to Icons.Filled.Blueline,
             MethodCardScreen.FlashCard to Icons.Filled.Flashcard,
             MethodCardScreen.Simulator to Icons.Filled.Simulator,
-            MethodCardScreen.Composition to Icons.Filled.Build,
+            MethodCardScreen.Compose to Icons.Filled.Build,
             MethodCardScreen.Settings to Icons.Filled.Settings,
         ).forEach { (screen, icon) ->
             NavigationBarItem(

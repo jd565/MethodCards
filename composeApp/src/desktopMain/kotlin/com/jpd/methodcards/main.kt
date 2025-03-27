@@ -16,6 +16,7 @@ fun main() = application {
     //     MethodsProto.serializer().descriptor,
     //     MethodProto.serializer().descriptor,
     //     MethodProto.CallProto.serializer().descriptor,
+    //     MethodProto.StandardCalls.serializer().descriptor,
     // )
     // val schemas = ProtoBufSchemaGenerator.generateSchemaText(descriptors)
     // println(schemas)

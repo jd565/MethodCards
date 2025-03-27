@@ -1,9 +1,9 @@
 package com.jpd.methodcards.data
 
 import androidx.room.AutoMigration
-import androidx.room.ColumnInfo
 import androidx.room.ConstructedBy
 import androidx.room.Database
+import androidx.room.DeleteColumn
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.Relation
@@ -16,19 +16,23 @@ import androidx.room.migration.AutoMigrationSpec
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 import com.jpd.methodcards.domain.CallDetails
+import com.jpd.methodcards.domain.MethodClassification
 import com.jpd.methodcards.domain.MethodFrequency
 import com.jpd.methodcards.domain.MethodWithCalls
 import com.jpd.methodcards.domain.PlaceNotation
 
 @Database(
     entities = [MethodEntity::class, CallEntity::class, SelectionEntity::class, MethodStatisticsEntity::class],
-    version = 6,
+    version = 8,
     autoMigrations = [
         AutoMigration(from = 4, to = 5, spec = AppAutoMigration::class),
         AutoMigration(from = 5, to = 6),
+        AutoMigration(from = 6, to = 7, spec = ChangeClassification::class),
+        AutoMigration(from = 7, to = 8, spec = RemoveCover::class),
     ],
 )
 @ConstructedBy(AppDatabaseConstructor::class)
+@TypeConverters(PlaceNotationTypeConverter::class)
 abstract class AppDatabase : RoomDatabase(), DB {
     abstract fun getMethodDao(): RoomSqlMethodDao
 
@@ -41,6 +45,7 @@ interface DB {
     fun clearAllTables() {}
 }
 
+@Suppress("NO_ACTUAL_FOR_EXPECT")
 expect object AppDatabaseConstructor : RoomDatabaseConstructor<AppDatabase>
 
 @Entity
@@ -51,8 +56,7 @@ data class MethodEntity(
     val ruleoffsEvery: Int,
     val ruleoffsFrom: Int,
     val magic: Int,
-    @ColumnInfo(defaultValue = "")
-    val classification: String,
+    val classification: MethodClassification,
 )
 
 @Entity(primaryKeys = ["methodName", "name"])
@@ -63,7 +67,6 @@ data class CallEntity(
     val notation: PlaceNotation,
     val from: Int,
     val every: Int,
-    val cover: Int,
 ) {
     fun toDomain(): CallDetails = CallDetails(
         methodName,
@@ -72,7 +75,6 @@ data class CallEntity(
         notation,
         from,
         every,
-        cover,
     )
 }
 
@@ -92,7 +94,7 @@ data class MethodWithCallsEntity(
     val stage: Int,
     val ruleoffsEvery: Int,
     val ruleoffsFrom: Int,
-    val classification: String,
+    val classification: MethodClassification,
     @Relation(parentColumn = "name", entityColumn = "methodName")
     val calls: List<CallEntity>,
     val enabledForMultiMethod: Boolean,
@@ -133,6 +135,18 @@ class ListIntTypeConverter {
     }
 }
 
+class PlaceNotationTypeConverter {
+    @TypeConverter
+    fun fromPlaceNotation(value: PlaceNotation): String {
+        return value.asString()
+    }
+
+    @TypeConverter
+    fun toPlaceNotation(value: String): PlaceNotation {
+        return PlaceNotation(value)
+    }
+}
+
 @RenameColumn(tableName = "SelectionEntity", fromColumnName = "name", toColumnName = "selectionName")
 @RenameColumn(tableName = "SelectionEntity", fromColumnName = "stage", toColumnName = "selectionStage")
 class AppAutoMigration : AutoMigrationSpec {
@@ -140,3 +154,12 @@ class AppAutoMigration : AutoMigrationSpec {
         connection.execSQL("DELETE from MethodEntity")
     }
 }
+
+class ChangeClassification : AutoMigrationSpec {
+    override fun onPostMigrate(connection: SQLiteConnection) {
+        connection.execSQL("DELETE from MethodEntity")
+    }
+}
+
+@DeleteColumn(tableName = "CallEntity", columnName = "cover")
+class RemoveCover : AutoMigrationSpec

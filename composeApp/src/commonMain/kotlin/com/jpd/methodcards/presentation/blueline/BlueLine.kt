@@ -21,17 +21,26 @@ import androidx.compose.ui.unit.sp
 import com.jpd.methodcards.domain.Row
 import com.jpd.methodcards.domain.toBellChar
 
+private val Color.Companion.DarkBlue get() = Color(0xff0033cc)
+private val Color.Companion.Orange get() = Color(0xffff6600)
+private val Color.Companion.Purple get() = Color(0xff6600cc)
+private val Color.Companion.Teal get() = Color(0xff009999)
+private val Color.Companion.GoldenYellow get() = Color(0xffccaa00)
+private val Color.Companion.DeepPink get() = Color(0xffff1493)
+
 val BlueLineColors =
     listOf(
         Color.Blue,
-        Color.Green,
         Color.Magenta,
-        Color.Yellow,
-        Color.Cyan,
-        Color(0xff013220),
-        Color(0xffa52a2a),
+        Color.GoldenYellow,
+        Color.DarkGray,
+        Color.DeepPink,
+        Color.Black,
         Color.Red,
-        Color(0xff800080),
+        Color.Green,
+        Color.Orange,
+        Color.Teal,
+        Color.Purple,
     )
 val TrebleLineColor = Color.Red
 

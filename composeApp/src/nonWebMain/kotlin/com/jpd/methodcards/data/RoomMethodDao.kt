@@ -6,6 +6,8 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.RewriteQueriesToDropUnusedColumns
 import androidx.room.Transaction
+import com.jpd.MethodProto
+import com.jpd.methodcards.data.library.toDomain
 import com.jpd.methodcards.domain.MethodFrequency
 import com.jpd.methodcards.domain.MethodSelection
 import com.jpd.methodcards.domain.MethodWithCalls
@@ -28,6 +30,10 @@ class RoomMethodDao(
 
     override fun getMethod(name: String): Flow<MethodWithCalls?> {
         return dao.getMethod(name).map { it?.toDomain() }
+    }
+
+    override suspend fun searchByPlaceNotation(pn: List<PlaceNotation>): List<MethodWithCalls> {
+        return dao.searchByPlaceNotation(pn.map { it.asString() }).map { it.toDomain() }
     }
 
     override suspend fun toggleMethodSelected(name: String) {
@@ -54,6 +60,29 @@ class RoomMethodDao(
         dao.incrementMethodStatistics(methodName, stage, lead, error)
     }
 
+    override suspend fun addMethod(method: MethodWithCalls) {
+        val methodEntity = MethodEntity(
+            name = method.name,
+            placeNotation = method.placeNotation,
+            stage = method.stage,
+            ruleoffsFrom = method.ruleoffsFrom,
+            ruleoffsEvery = method.ruleoffsEvery,
+            magic = 0,
+            classification = method.classification,
+        )
+        val calls = method.calls.map { call ->
+            CallEntity(
+                methodName = method.name,
+                name = call.name,
+                symbol = call.symbol,
+                notation = call.notation,
+                from = call.from,
+                every = call.every,
+            )
+        }
+        dao.insert(listOf(methodEntity), calls)
+    }
+
     override suspend fun insert(methods: List<MethodProto>) {
         val methodEntities = ArrayList<MethodEntity>(methods.size)
         val callEntities = ArrayList<CallEntity>(methods.size * 2)
@@ -66,19 +95,18 @@ class RoomMethodDao(
                     ruleoffsFrom = method.ruleoffsFrom,
                     ruleoffsEvery = method.ruleoffsEvery,
                     magic = method.magic,
-                    classification = method.classification,
+                    classification = method.classification.toDomain(),
                 ),
             )
-            method.calls.forEach { (name, call) ->
+            method.calls.forEach { call ->
                 callEntities.add(
                     CallEntity(
                         methodName = method.name,
-                        name = name,
+                        name = call.name,
                         symbol = call.symbol,
                         notation = PlaceNotation(call.notation),
                         from = call.from,
-                        every = call.every,
-                        cover = call.cover,
+                        every = call.every(method.lengthOfLead),
                     ),
                 )
             }
@@ -89,41 +117,45 @@ class RoomMethodDao(
 
 @Dao
 interface RoomSqlMethodDao {
-    @Query(
-        """
+    @Query("""
         SELECT m.name, m.placeNotation, s.selected
         FROM MethodEntity AS m
         INNER JOIN SelectionEntity AS s on s.selectionName = m.name
         WHERE m.stage = :stage
         ORDER BY s.selected DESC, m.magic
-    """,
-    )
+    """)
     fun getMethodsByStage(stage: Int): Flow<List<MethodSelection>>
 
     @Transaction
     @RewriteQueriesToDropUnusedColumns
-    @Query(
-        """
+    @Query("""
         SELECT *
         FROM MethodEntity AS m
         INNER JOIN SelectionEntity AS s on s.selectionName = m.name
         WHERE s.selected = true
         ORDER BY m.magic
-        """,
-    )
+    """,)
     fun getSelectedMethods(): Flow<List<MethodWithCallsEntity>>
 
     @Transaction
     @RewriteQueriesToDropUnusedColumns
-    @Query(
-        """
+    @Query("""
         SELECT *
         FROM MethodEntity AS m
         INNER JOIN SelectionEntity AS s on s.selectionName = m.name
         WHERE m.name = :name
-        """,
-    )
+    """)
     fun getMethod(name: String): Flow<MethodWithCallsEntity?>
+
+    @Transaction
+    @RewriteQueriesToDropUnusedColumns
+    @Query("""
+        SELECT *
+        FROM MethodEntity AS m
+        INNER JOIN SelectionEntity AS s on s.selectionName = m.name
+        WHERE m.placeNotation IN (:pn)
+    """)
+    suspend fun searchByPlaceNotation(pn: List<String>): List<MethodWithCallsEntity>
 
     @Query("UPDATE SelectionEntity SET selected = NOT selected WHERE selectionName = :name")
     suspend fun toggleMethodSelected(name: String)

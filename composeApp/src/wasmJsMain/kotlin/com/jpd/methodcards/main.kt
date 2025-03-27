@@ -3,7 +3,7 @@ package com.jpd.methodcards
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
-import com.jpd.methodcards.data.MethodLibrary
+import com.jpd.methodcards.data.library.MethodLibrary
 import com.jpd.methodcards.presentation.App
 import com.jpd.methodcards.presentation.KeyDirection
 import com.jpd.methodcards.presentation.KeyEvent

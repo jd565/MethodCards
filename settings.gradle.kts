@@ -29,3 +29,5 @@ dependencyResolutionManagement {
 }
 
 include(":composeApp")
+includeBuild("methodsDomain")
+includeBuild("protoMethodGenerator")

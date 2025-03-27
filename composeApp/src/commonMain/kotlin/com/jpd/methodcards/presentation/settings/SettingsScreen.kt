@@ -262,7 +262,7 @@ private class SettingsController(
                     stage = stage,
                     methods = methods.filter {
                         it.name.contains(search, ignoreCase = true) ||
-                            it.placeNotation.pn.contains(pnTerm, ignoreCase = true)
+                            it.placeNotation.asString().contains(pnTerm, ignoreCase = true)
                     },
                 )
             }

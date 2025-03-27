@@ -11,11 +11,11 @@ import com.jpd.methodcards.data.AppDatabase
 import com.jpd.methodcards.data.MethodCardsDataStorePreferences
 import com.jpd.methodcards.data.MethodCardsPreferences
 import com.jpd.methodcards.data.MethodDao
-import com.jpd.methodcards.data.MethodLibrary
-import com.jpd.methodcards.data.MethodLibraryVersion
 import com.jpd.methodcards.data.RoomMethodDao
 import com.jpd.methodcards.data.SimulatorDataStorePersistence
 import com.jpd.methodcards.data.SimulatorPersistence
+import com.jpd.methodcards.data.library.MethodLibrary
+import com.jpd.methodcards.data.library.MethodLibraryVersion
 import com.jpd.methodcards.domain.PersistedSimulatorState
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers

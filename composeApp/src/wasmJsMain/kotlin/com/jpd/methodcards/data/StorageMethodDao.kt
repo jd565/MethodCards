@@ -1,5 +1,7 @@
 package com.jpd.methodcards.data
 
+import com.jpd.MethodProto
+import com.jpd.methodcards.data.library.toDomain
 import com.jpd.methodcards.domain.CallDetails
 import com.jpd.methodcards.domain.MethodFrequency
 import com.jpd.methodcards.domain.MethodSelection
@@ -9,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlin.collections.set
 
 class StorageMethodDao : MethodDao {
@@ -177,6 +180,21 @@ class StorageMethodDao : MethodDao {
         magicByName = magic
     }
 
+    override suspend fun searchByPlaceNotation(pn: List<PlaceNotation>): List<MethodWithCalls> {
+        val targets = pn.toSet()
+        return methodsByName.value.values.filter { it.placeNotation in targets }
+    }
+
+    override suspend fun addMethod(method: MethodWithCalls) {
+        methodsByName.update { it + (method.name to method) }
+        methodsByStage.update { byStage ->
+            val newMethods = byStage.getOrElse(method.stage) { emptyList() }
+            val newSelection = MethodSelection(method.name, false, PlaceNotation(method.placeNotation.asString()))
+            byStage.plus(method.stage to listOf(newSelection).plus(newMethods))
+        }
+        magicByName = magicByName.plus(method.name to 0)
+    }
+
     companion object {
         private const val SELECTED_METHODS_KEY = "selectedMethods"
         private const val MULTI_METHOD_ENABLED_METHODS_KEY = "multiMethodEnabledMethods"
@@ -192,22 +210,21 @@ private fun MethodProto.toDomain(): MethodWithCalls {
         stage = stage,
         ruleoffsFrom = ruleoffsFrom,
         ruleoffsEvery = ruleoffsEvery,
-        calls = calls.map { it.value.toDomain(name, it.key) },
-        classification = classification,
+        calls = calls.map { it.toDomain(this) },
+        classification = classification.toDomain(),
         enabledForMultiMethod = false,
         multiMethodFrequency = MethodFrequency.Regular,
         enabledForBlueline = false,
     )
 }
 
-private fun MethodProto.CallProto.toDomain(methodName: String, callName: String): CallDetails {
+private fun MethodProto.CallProto.toDomain(method: MethodProto): CallDetails {
     return CallDetails(
-        methodName = methodName,
-        name = callName,
+        methodName = method.name,
+        name = name,
         symbol = symbol,
         notation = PlaceNotation(notation),
         from = from,
-        every = every,
-        cover = cover,
+        every = every(method.lengthOfLead),
     )
 }

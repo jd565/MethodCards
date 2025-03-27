@@ -1,8 +1,10 @@
 package com.jpd.methodcards.data
 
+import com.jpd.MethodProto
 import com.jpd.methodcards.domain.MethodFrequency
 import com.jpd.methodcards.domain.MethodSelection
 import com.jpd.methodcards.domain.MethodWithCalls
+import com.jpd.methodcards.domain.PlaceNotation
 import kotlinx.coroutines.flow.Flow
 
 interface MethodDao {
@@ -21,4 +23,6 @@ interface MethodDao {
         error: Boolean
     )
     suspend fun insert(methods: List<MethodProto>)
+    suspend fun searchByPlaceNotation(pn: List<PlaceNotation>): List<MethodWithCalls>
+    suspend fun addMethod(method: MethodWithCalls)
 }

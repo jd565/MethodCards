@@ -5,6 +5,7 @@ import com.jpd.methodcards.domain.MethodFrequency
 import com.jpd.methodcards.domain.MethodSelection
 import com.jpd.methodcards.domain.MethodWithCalls
 import com.jpd.methodcards.domain.PersistedSimulatorState
+import com.jpd.methodcards.domain.PlaceNotation
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -64,5 +65,13 @@ class MethodRepository(
 
     suspend fun incrementMethodStatistics(method: MethodWithCalls, place: Int, error: Boolean) {
         dao.incrementMethodStatistics(method.name, method.stage, place, error)
+    }
+
+    suspend fun searchByPlaceNotations(pn: List<PlaceNotation>): List<MethodWithCalls> {
+        return dao.searchByPlaceNotation(pn)
+    }
+
+    suspend fun addMethod(method: MethodWithCalls) {
+        dao.addMethod(method)
     }
 }
