@@ -16,29 +16,22 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
-import androidx.compose.material3.adaptive.layout.AnimatedPane
-import androidx.compose.material3.adaptive.layout.PaneAdaptedValue
-import androidx.compose.material3.adaptive.layout.SupportingPaneScaffold
-import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldRole
-import androidx.compose.material3.adaptive.navigation.rememberSupportingPaneScaffoldNavigator
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -54,12 +47,19 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.DEFAULT_ARGS_KEY
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
 import com.jpd.methodcards.data.MethodRepository
 import com.jpd.methodcards.domain.MethodWithCalls
 import com.jpd.methodcards.domain.toBellChar
 import com.jpd.methodcards.presentation.NoMethodSelectedView
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -68,104 +68,84 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
+import kotlin.reflect.KClass
 
 private const val BlueLineExplainer = "On this screen you can select an individual method from the enabled methods " +
     "to display the whole blue line for this method.\n\n" +
     "You can use the settings to change the style of the blue line used."
 
-@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 fun BlueLineScreen(
     modifier: Modifier = Modifier,
-    showBlueLineBottomSheet: () -> Unit,
     navigateToAppSettings: () -> Unit,
-    navigateBack: () -> Unit,
-    method: String? = null,
 ) {
-    val scope = rememberCoroutineScope()
-    val controller = remember(scope, method) { BlueLineController(scope, method) }
+    val controller: BlueLineController = viewModel(factory = BlueLineController.Factory)
     val model = controller.uiState.collectAsState().value
 
     if (model != null) {
-        val navigator = rememberSupportingPaneScaffoldNavigator()
-        // BackHandler(navigator.canNavigateBack()) {
-        //     navigator.navigateBack()
-        // }
-
-        SupportingPaneScaffold(
-            directive = navigator.scaffoldDirective,
-            value = navigator.scaffoldValue,
-            mainPane = {
-                AnimatedPane {
-                    BlueLineView(
-                        model = model,
-                        modifier = modifier,
-                        selectMethod = { navigator.navigateTo(ThreePaneScaffoldRole.Secondary) },
-                        settingsClicked = showBlueLineBottomSheet,
-                        addMethodClicked = navigateToAppSettings,
-                        onClose = navigateBack,
-                        canSelectMethod = navigator.scaffoldValue.secondary == PaneAdaptedValue.Hidden,
-                    )
-                }
-            },
-            supportingPane = {
-                AnimatedPane {
-                    BlueLineMethodList(
-                        model = model,
-                        selectMethod = remember(controller, navigator) {
-                            {
-                                controller.selectMethod(it)
-                                navigator.navigateBack()
-                            }
-                                                                       },
-                    )
-                }
-            },
+        BlueLineView(
+            model = model,
+            modifier = modifier,
+            addMethodClicked = navigateToAppSettings,
         )
     } else {
         Box(modifier)
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BlueLineView(
-    model: BlueLineUiModel,
-    modifier: Modifier,
+fun BlueLineTopBar(
+    backStackEntry: NavBackStackEntry,
     selectMethod: () -> Unit,
-    settingsClicked: () -> Unit,
-    addMethodClicked: () -> Unit,
-    onClose: () -> Unit,
-    canSelectMethod: Boolean,
+    navigationIcon: @Composable () -> Unit,
 ) {
-
+    val controller: BlueLineController = viewModel(
+        viewModelStoreOwner = backStackEntry,
+        factory = BlueLineController.Factory,
+    )
+    val model = controller.uiState.collectAsStateWithLifecycle().value
     var showExplainer by remember { mutableStateOf(false) }
-    Column(modifier = modifier) {
-        BlueLineTopRow(
-            model = model,
-            explainerClicked = { showExplainer = true },
-            settingsClicked = settingsClicked,
-            onClose = onClose,
-            selectMethod = selectMethod,
-            canSelectMethod = canSelectMethod,
-        )
-        if (model is BlueLineMethodsModel) {
-            BlueLinePager(model.selectedMethod, modifier = Modifier.weight(1f))
-        } else if (model is SingleBlueLineModel) {
-            BlueLinePager(model.method, modifier = Modifier.weight(1f))
-        } else {
-            NoMethodSelectedView(
-                modifier = Modifier.weight(1f),
-                addMethodClicked = addMethodClicked,
-            )
-        }
-    }
+    TopAppBar(
+        title = {
+            when (model) {
+                is BlueLineMethodsModel -> {
+                    Box(
+                        modifier = Modifier.clickable(onClick = selectMethod),
+                    ) {
+                        Row(
+                            modifier = Modifier.heightIn(48.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            Text(model.selectedMethod.name)
+                            Spacer(Modifier.width(8.dp))
+                            Icon(Icons.AutoMirrored.Default.KeyboardArrowRight, contentDescription = null)
+                        }
+                    }
+                }
+
+                is SingleBlueLineModel -> {
+                    Text(model.method.name)
+                }
+
+                else -> Unit
+            }
+        },
+        actions = {
+            IconButton(onClick = { showExplainer = true }) {
+                Icon(Icons.Outlined.Info, contentDescription = "Explainer")
+            }
+        },
+        navigationIcon = navigationIcon,
+    )
 
     if (showExplainer) {
         AlertDialog(
             onDismissRequest = { showExplainer = false },
             confirmButton = {},
             title = {
-                Text("BlueLine Screen")
+                Text("Blue Line Screen")
             },
             text = {
                 Text(BlueLineExplainer)
@@ -175,93 +155,15 @@ private fun BlueLineView(
 }
 
 @Composable
-private fun BlueLineMethodList(
+private fun BlueLineView(
     model: BlueLineUiModel,
-    selectMethod: (String) -> Unit,
+    modifier: Modifier,
+    addMethodClicked: () -> Unit,
 ) {
-    if (model is BlueLineMethodsModel) {
-        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-            model.methods.forEach { method ->
-                Box(
-                    modifier =
-                    Modifier
-                        .heightIn(32.dp)
-                        .fillMaxWidth()
-                        .clickable {
-                            selectMethod(method.name)
-                        }.padding(horizontal = 40.dp),
-                    contentAlignment = Alignment.CenterStart,
-                ) {
-                    Text(method.name)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun BlueLineTopRow(
-    model: BlueLineUiModel,
-    explainerClicked: () -> Unit,
-    settingsClicked: () -> Unit,
-    selectMethod: () -> Unit,
-    onClose: () -> Unit,
-    canSelectMethod: Boolean,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().heightIn(56.dp).padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (model !is SingleBlueLineModel) {
-            IconButton(onClick = explainerClicked) {
-                Icon(Icons.Outlined.Info, contentDescription = "Blue Line Explainer")
-            }
-        } else {
-            IconButton(onClick = onClose) {
-                Icon(Icons.Outlined.Close, contentDescription = "Close")
-            }
-        }
-        when (model) {
-            is BlueLineMethodsModel -> {
-                val modifier = if (canSelectMethod) {
-                    Modifier.clickable(onClick = selectMethod)
-                } else {
-                    Modifier
-                }
-                Box(
-                    modifier = Modifier.weight(1f).then(modifier),
-                ) {
-                    Row(
-                        modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .heightIn(48.dp)
-                            .padding(horizontal = 24.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        Text(model.selectedMethod.name)
-                        if (canSelectMethod) {
-                            Spacer(Modifier.width(8.dp))
-                            Icon(Icons.AutoMirrored.Default.KeyboardArrowRight, contentDescription = null)
-                        }
-                    }
-                }
-            }
-
-            is SingleBlueLineModel -> {
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    Text(model.method.name)
-                }
-            }
-
-            else -> {
-                Box(modifier = Modifier.weight(1f))
-            }
-        }
-        IconButton(onClick = settingsClicked) {
-            Icon(Icons.Outlined.Settings, contentDescription = "Blue Line Settings")
-        }
+    when (model) {
+        is BlueLineMethodsModel -> BlueLinePager(model.selectedMethod, modifier = modifier)
+        is SingleBlueLineModel -> BlueLinePager(model.method, modifier = modifier)
+        else -> NoMethodSelectedView(modifier = modifier, addMethodClicked = addMethodClicked)
     }
 }
 
@@ -304,7 +206,6 @@ private fun BlueLinePager(
     }
 }
 
-@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 private fun BlueLine(
     method: MethodWithCalls,
@@ -365,6 +266,7 @@ private fun BlueLine(
                     16.dp.toPx() * 2 +
                     8.dp.toPx() * (plainLeadColumns + callColumns)
 
+            val textColor = LocalContentColor.current
             Canvas(modifier = Modifier.width(width.toDp()).fillMaxHeight()) {
                 var startX = 16.dp.toPx()
                 val places = method.leadCycles.map { it.first() }
@@ -376,12 +278,13 @@ private fun BlueLine(
                             placeCharResults = results,
                             topLeft = Offset(x = startX, y = startY),
                             blueLines =
-                            blueLineDetails(
-                                places,
-                                method.huntBells,
-                            ),
+                                blueLineDetails(
+                                    places,
+                                    method.huntBells,
+                                ),
                             ruleoffsEvery = method.ruleoffsEvery,
                             ruleoffsFrom = method.ruleoffsFrom,
+                            textColor = textColor,
                         )
 
                     val startPlaces = places.map { place ->
@@ -397,11 +300,11 @@ private fun BlueLine(
                             measurer = placeMeasurer,
                             blueLineStyle = style,
                             bells = startPlaces,
-                            topLeft =
-                            Offset(
+                            topLeft = Offset(
                                 x = startX + rowSize.width + 4.dp.toPx(),
                                 y = startY,
                             ),
+                            textColor = textColor,
                         )
 
                     startX += rowSize.width + 4.dp.toPx() + leadSize.width + 8.dp.toPx()
@@ -418,8 +321,7 @@ private fun BlueLine(
                         drawText(
                             nameResult,
                             color = Color.Black,
-                            topLeft =
-                            Offset(
+                            topLeft = Offset(
                                 x = startX + (spacing - results[0].size.width) / 2,
                                 y = startY,
                             ),
@@ -433,12 +335,13 @@ private fun BlueLine(
                                 placeCharResults = results,
                                 topLeft = Offset(x = startX, y = yOffset),
                                 blueLines =
-                                blueLineDetails(
-                                    fullCall.affectedBells,
-                                    method.huntBells,
-                                ),
+                                    blueLineDetails(
+                                        fullCall.affectedBells,
+                                        method.huntBells,
+                                    ),
                                 ruleoffsEvery = fullCall.ruleoffsEvery,
                                 ruleoffsFrom = fullCall.rowRuleoffsFrom,
+                                textColor = textColor,
                             )
 
                         startX += rowSize.width + 8.dp.toPx()
@@ -495,6 +398,7 @@ private fun BlueLineGrid(
                     16.dp.toPx() * 2 +
                     8.dp.toPx() * (callColumns)
 
+            val textColor = LocalContentColor.current
             Canvas(modifier = Modifier.width(width.toDp()).fillMaxHeight()) {
                 var startX = 16.dp.toPx()
 
@@ -524,6 +428,7 @@ private fun BlueLineGrid(
                         ),
                         ruleoffsEvery = method.ruleoffsEvery,
                         ruleoffsFrom = method.ruleoffsFrom,
+                        textColor = textColor,
                     )
 
                 startX += rowSize.width + 8.dp.toPx()
@@ -538,9 +443,8 @@ private fun BlueLineGrid(
                         val nameResult = measurer.measure(title, style = style)
                         drawText(
                             nameResult,
-                            color = Color.Black,
-                            topLeft =
-                            Offset(
+                            color = textColor,
+                            topLeft = Offset(
                                 x = startX + (spacing - results[0].size.width) / 2,
                                 y = startY,
                             ),
@@ -553,12 +457,13 @@ private fun BlueLineGrid(
                             placeCharResults = results,
                             topLeft = Offset(x = startX, y = yOffset),
                             blueLines =
-                            blueLineDetails(
-                                fullCall.affectedBells,
-                                method.huntBells,
-                            ),
+                                blueLineDetails(
+                                    fullCall.affectedBells,
+                                    method.huntBells,
+                                ),
                             ruleoffsEvery = fullCall.ruleoffsEvery,
                             ruleoffsFrom = fullCall.rowRuleoffsFrom,
+                            textColor = textColor,
                         )
 
                         startX += callRowSize.width + 8.dp.toPx()
@@ -581,15 +486,15 @@ private data class SingleBlueLineModel(
 private data object BlueLineEmptyModel : BlueLineUiModel()
 
 private class BlueLineController(
-    private val scope: CoroutineScope,
     private val method: String? = null,
     defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val methodRepository: MethodRepository = MethodRepository(),
-) {
+) : ViewModel() {
     private val _uiState = MutableStateFlow<BlueLineUiModel?>(null)
     val uiState = _uiState.asStateFlow()
 
     init {
+        println("Creating BlueLineController")
         if (method == null) {
             methodRepository.observeSelectedMethods()
                 .map { methods ->
@@ -604,7 +509,7 @@ private class BlueLineController(
                     }
                 }
                 .onEach { _uiState.value = it }
-                .launchIn(scope + defaultDispatcher)
+                .launchIn(viewModelScope + defaultDispatcher)
         } else {
             methodRepository.observeMethod(method)
                 .map { method ->
@@ -615,13 +520,16 @@ private class BlueLineController(
                     }
                 }
                 .onEach { _uiState.value = it }
-                .launchIn(scope + defaultDispatcher)
+                .launchIn(viewModelScope + defaultDispatcher)
         }
     }
 
-    fun selectMethod(method: String) {
-        scope.launch {
-            methodRepository.setBlueLineMethod(method)
+    object Factory : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
+            // This needs to match the name of the field in the nav graph
+            val methodName = extras[DEFAULT_ARGS_KEY]?.getString("methodName")
+            return BlueLineController(methodName) as T
         }
     }
 }

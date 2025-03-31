@@ -19,17 +19,17 @@ class StorageMethodDao : MethodDao {
     private val methodsByName = MutableStateFlow(emptyMap<String, MethodWithCalls>())
     private var magicByName = emptyMap<String, Int>()
 
-    private val selectedMethods = StorageBasedFlow(
+    private val selectedMethods: StorageBasedFlow<LinkedHashSet<String>> = StorageBasedFlow(
         SELECTED_METHODS_KEY,
         { it.joinToString(",") },
         { it?.split(",")?.toCollection(LinkedHashSet()) ?: LinkedHashSet() },
     )
-    private val multiMethodEnabledMethods = StorageBasedFlow(
+    private val multiMethodEnabledMethods: StorageBasedFlow<Set<String>> = StorageBasedFlow(
         MULTI_METHOD_ENABLED_METHODS_KEY,
         { it.joinToString(",") },
         { it?.split(",")?.toSet() ?: emptySet() },
     )
-    private val multiMethodFrequency = StorageBasedFlow(
+    private val multiMethodFrequency: StorageBasedFlow<Map<String, MethodFrequency>> = StorageBasedFlow(
         MULTI_METHOD_FREQUENCY_KEY,
         { it.entries.joinToString(",") { (name, frequency) -> "$name:$frequency" } },
         {
@@ -39,7 +39,7 @@ class StorageMethodDao : MethodDao {
             } ?: emptyMap()
         },
     )
-    private val blueLineMethod = StorageBasedFlow(BLUE_LINE_METHOD_KEY, { it }, { it ?: "" })
+    private val blueLineMethod: StorageBasedFlow<String> = StorageBasedFlow(BLUE_LINE_METHOD_KEY, { it }, { it ?: "" })
 
     override fun getMethodsByStage(stage: Int): Flow<List<MethodSelection>> {
         return combine(

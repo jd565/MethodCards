@@ -6,6 +6,8 @@ import com.jpd.methodcards.domain.MethodSelection
 import com.jpd.methodcards.domain.MethodWithCalls
 import com.jpd.methodcards.domain.PersistedSimulatorState
 import com.jpd.methodcards.domain.PlaceNotation
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -20,6 +22,7 @@ class MethodRepository(
 ) {
     private fun observeStage(): Flow<Int> = preferences.observeStage()
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun getMethods(): Flow<Pair<Int, List<MethodSelection>>> = observeStage().flatMapLatest { stage ->
         dao.getMethodsByStage(stage).map { stage to it }
     }
@@ -57,6 +60,7 @@ class MethodRepository(
         return simulatorPersistence.getSimulatorModel(stage)
     }
 
+    @OptIn(DelicateCoroutinesApi::class)
     fun persistSimulatorModel(model: PersistedSimulatorState) {
         GlobalScope.launch {
             simulatorPersistence.persistSimulatorModel(model)

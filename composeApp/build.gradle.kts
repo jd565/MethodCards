@@ -12,7 +12,6 @@ plugins {
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.kotlinx.serialization)
     alias(libs.plugins.google.services)
-    alias(libs.plugins.androidx.room)
     alias(libs.plugins.ksp)
 }
 
@@ -99,10 +98,12 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(libs.navigation.compose)
             implementation(libs.kotlinx.serialization.proto)
-            implementation("org.jetbrains.compose.material3.adaptive:adaptive:1.0.1")
-            implementation("org.jetbrains.compose.material3.adaptive:adaptive-layout:1.0.1")
-            implementation("org.jetbrains.compose.material3.adaptive:adaptive-navigation:1.0.1")
+            implementation(libs.material3.adaptive)
+            implementation(libs.material3.adaptive.layout)
+            implementation(libs.material3.adaptive.navigation)
+            implementation(libs.backhandler)
             implementation("com.jpd:methodsDomain:0.0.1")
+            implementation(libs.compose.viewmodel)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -128,8 +129,23 @@ dependencies {
     add("kspIosArm64", libs.androidx.room.compiler)
 }
 
-room {
-    schemaDirectory("$projectDir/schemas")
+// room {
+//     schemaDirectory("$projectDir/schemas")
+// }
+
+class RoomSchemaArgProvider(
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    val schemaDir: File
+) : CommandLineArgumentProvider {
+
+    override fun asArguments(): Iterable<String> {
+        return listOf("room.schemaLocation=${schemaDir.path}")
+    }
+}
+
+ksp {
+    arg(RoomSchemaArgProvider(File(projectDir, "schemas")))
 }
 
 android {

@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -26,20 +25,22 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jpd.methodcards.data.MethodRepository
 import com.jpd.methodcards.domain.MethodWithCalls
 import com.jpd.methodcards.domain.Row
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,13 +50,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.reflect.KClass
 
 @Composable
 fun CompositionScreen(
     modifier: Modifier = Modifier,
 ) {
-    val scope = rememberCoroutineScope()
-    val controller = remember(scope) { CompositionController(scope) }
+    val controller: CompositionController = viewModel(factory = CompositionController.Factory)
     when (val model = controller.uiState.collectAsState().value) {
         is CompositionUiModel -> {
             CompositionView(
@@ -81,103 +82,101 @@ private fun CompositionView(
     setMethodSymbol: (String, String) -> Unit,
 ) {
     Column(modifier) {
-        Row(
-            modifier = Modifier.fillMaxWidth().heightIn(56.dp).padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // IconButton(onClick = explainerClicked) {
-            //     Icon(Icons.Outlined.Info, contentDescription = "Explainer")
-            // }
-            Box(modifier = Modifier.weight(1f))
-        }
-
-        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            var expanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = it },
-            ) {
-                TextField(
-                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
-                    value = "Stage: ${model.stage}",
-                    onValueChange = {},
-                    readOnly = true,
-                    singleLine = true,
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                    colors = ExposedDropdownMenuDefaults.textFieldColors(),
-                )
-                ExposedDropdownMenu(
+        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                var expanded by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(
                     expanded = expanded,
-                    modifier = Modifier.exposedDropdownSize(false),
-                    onDismissRequest = { expanded = false },
+                    onExpandedChange = { expanded = it },
                 ) {
-                    MethodWithCalls.AllowedStages.forEach { stage ->
-                        DropdownMenuItem(
-                            text = { Text("Stage: $stage", style = MaterialTheme.typography.bodyLarge) },
-                            onClick = {
-                                expanded = false
-                                setStage(stage)
-                            },
-                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
-                        )
+                    TextField(
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
+                        value = "Stage: ${model.stage}",
+                        onValueChange = {},
+                        readOnly = true,
+                        singleLine = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                        colors = ExposedDropdownMenuDefaults.textFieldColors(),
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        modifier = Modifier.exposedDropdownSize(false),
+                        onDismissRequest = { expanded = false },
+                    ) {
+                        MethodWithCalls.AllowedStages.forEach { stage ->
+                            DropdownMenuItem(
+                                text = { Text("Stage: $stage", style = MaterialTheme.typography.bodyLarge) },
+                                onClick = {
+                                    expanded = false
+                                    setStage(stage)
+                                },
+                                contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                            )
+                        }
                     }
                 }
             }
-        }
 
-        if (model is CompositionUiModel.Methods) {
-            var methodMapExpanded by remember { mutableStateOf(false) }
-            Row(modifier = Modifier.clickable { methodMapExpanded = !methodMapExpanded }) {
-                Text("Method Keys")
+            if (model is CompositionUiModel.Methods) {
+                var methodMapExpanded by remember { mutableStateOf(false) }
+                Row(modifier = Modifier.clickable { methodMapExpanded = !methodMapExpanded }) {
+                    Text("Method Keys")
+                    if (methodMapExpanded) {
+                        Icon(
+                            Icons.Filled.ArrowDropDown,
+                            modifier = Modifier.rotate(180f),
+                            contentDescription = "Collapse",
+                        )
+                    } else {
+                        Icon(Icons.Filled.ArrowDropDown, contentDescription = "Expand")
+                    }
+                }
                 if (methodMapExpanded) {
-                    Icon(Icons.Filled.ArrowDropDown, modifier = Modifier.rotate(180f), contentDescription = "Collapse")
-                } else {
-                    Icon(Icons.Filled.ArrowDropDown, contentDescription = "Expand")
-                }
-            }
-            if (methodMapExpanded) {
-                model.methodMap.forEach { mm ->
-                    Row {
-                        Text("${mm.method} -> ")
-                        OutlinedTextField(
-                            value = mm.symbol,
-                            onValueChange = { setMethodSymbol(mm.longMethodName, it) },
-                            maxLines = 1,
-                        )
+                    model.methodMap.forEach { mm ->
+                        Row {
+                            Text("${mm.method} -> ")
+                            OutlinedTextField(
+                                value = mm.symbol,
+                                onValueChange = { setMethodSymbol(mm.longMethodName, it) },
+                                maxLines = 1,
+                            )
+                        }
                     }
                 }
-            }
 
-            Column {
-                ProvideTextStyle(TextStyle(fontFamily = FontFamily.Monospace)) {
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Box(Modifier.weight(1f))
-                        Text(modifier = Modifier.weight(1f), text = model.callingPositionOrder.joinToString("  "))
-                        Box(Modifier.weight(1f))
+                Column {
+                    ProvideTextStyle(TextStyle(fontFamily = FontFamily.Monospace)) {
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Box(Modifier.weight(1f))
+                            Text(modifier = Modifier.weight(1f), text = model.callingPositionOrder.joinToString("  "))
+                            Box(Modifier.weight(1f))
+                        }
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                modifier = Modifier.weight(1f).alignByBaseline(),
+                                text = model.courses.joinToString("\n") { it.courseEnd.row.joinToString("") },
+                                lineHeight = 28.sp,
+                            )
+                            Text(
+                                modifier = Modifier.weight(1f)
+                                    .alignByBaseline(),
+                                text = model.courses.joinToString("\n") { course ->
+                                    model.callingPositionOrder.joinToString(" ") {
+                                        course.calls[it]?.padEnd(2, ' ') ?: "  "
+                                    }
+                                },
+                                lineHeight = 28.sp,
+                            )
+                            OutlinedTextField(
+                                modifier = Modifier.weight(1f).alignByBaseline(),
+                                value = model.courses.joinToString("\n") { it.methodsAndCalls },
+                                onValueChange = setCourseConstruction,
+                                textStyle = LocalTextStyle.current + TextStyle(lineHeight = 28.sp),
+                            )
+                        }
                     }
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            modifier = Modifier.weight(1f).alignByBaseline(),
-                            text = model.courses.joinToString("\n") { it.courseEnd.row.joinToString("") },
-                            lineHeight = 28.sp,
-                        )
-                        Text(
-                            modifier = Modifier.weight(1f)
-                                .alignByBaseline(),
-                            text = model.courses.joinToString("\n") { course ->
-                                model.callingPositionOrder.joinToString(" ") { course.calls[it]?.padEnd(2, ' ') ?: "  " }
-                            },
-                            lineHeight = 28.sp,
-                        )
-                        OutlinedTextField(
-                            modifier = Modifier.weight(1f).alignByBaseline(),
-                            value = model.courses.joinToString("\n") { it.methodsAndCalls },
-                            onValueChange = setCourseConstruction,
-                            textStyle = LocalTextStyle.current + TextStyle(lineHeight = 28.sp),
-                        )
-                    }
+                    Text(text = model.summary)
                 }
-                Text(text = model.summary)
             }
         }
     }
@@ -210,10 +209,9 @@ private data class CourseInformation(
 )
 
 private class CompositionController(
-    private val scope: CoroutineScope,
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val methodRepository: MethodRepository = MethodRepository(),
-) {
+) : ViewModel() {
     private val _uiState = MutableStateFlow<CompositionUiModel?>(null)
     val uiState: StateFlow<CompositionUiModel?> = _uiState.asStateFlow()
 
@@ -222,7 +220,7 @@ private class CompositionController(
     private val methodSymbols = MutableStateFlow<Map<String, MethodWithCalls>>(emptyMap())
 
     init {
-        scope.launch {
+        viewModelScope.launch {
             val allMethods = methodRepository.observeSelectedMethods().first()
             stage.collect { stage ->
                 val methods = allMethods.filter { it.stage == stage }
@@ -237,7 +235,7 @@ private class CompositionController(
             }
         }
 
-        scope.launch {
+        viewModelScope.launch {
             val allMethods = methodRepository.observeSelectedMethods().first()
             combine(
                 methodSymbols,
@@ -320,15 +318,18 @@ private class CompositionController(
                         totalRows += method.changesInLead
                         methodRows[method.name] = methodRows.getOrPut(method.name) { 0 } + method.changesInLead
                     }
-                    CourseInformation(row, c, calls.mapValues { (_, callString) ->
-                        if (callString.length == 1) {
-                            callString
-                        } else if (callString.all { it == '-' }) {
-                            callString.length.toString()
-                        } else {
-                            "${callString.length}*"
-                        }
-                    })
+                    CourseInformation(
+                        row, c,
+                        calls.mapValues { (_, callString) ->
+                            if (callString.length == 1) {
+                                callString
+                            } else if (callString.all { it == '-' }) {
+                                callString.length.toString()
+                            } else {
+                                "${callString.length}*"
+                            }
+                        },
+                    )
                 }
                 val callingPositionOrder = buildList {
                     val method = usedMethods.firstOrNull()
@@ -444,5 +445,12 @@ private class CompositionController(
             val t = n.substring(0, size)
         } while (t in current)
         return n.substring(0, size)
+    }
+
+    object Factory : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
+            return CompositionController() as T
+        }
     }
 }

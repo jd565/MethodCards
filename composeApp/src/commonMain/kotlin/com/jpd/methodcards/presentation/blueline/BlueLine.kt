@@ -21,14 +21,29 @@ import androidx.compose.ui.unit.sp
 import com.jpd.methodcards.domain.Row
 import com.jpd.methodcards.domain.toBellChar
 
-private val Color.Companion.DarkBlue get() = Color(0xff0033cc)
 private val Color.Companion.Orange get() = Color(0xffff6600)
 private val Color.Companion.Purple get() = Color(0xff6600cc)
 private val Color.Companion.Teal get() = Color(0xff009999)
 private val Color.Companion.GoldenYellow get() = Color(0xffccaa00)
 private val Color.Companion.DeepPink get() = Color(0xffff1493)
+private val Color.Companion.LightBlue get() = Color(0xff89cff0)
 
-val BlueLineColors =
+val DarkBlueLineColors =
+    listOf(
+        Color.LightBlue,
+        Color.Magenta,
+        Color.GoldenYellow,
+        Color.LightGray,
+        Color.DeepPink,
+        Color.White,
+        Color.Red,
+        Color.Green,
+        Color.Orange,
+        Color.Teal,
+        Color.Purple,
+    )
+
+val LightBlueLineColors =
     listOf(
         Color.Blue,
         Color.Magenta,
@@ -42,6 +57,8 @@ val BlueLineColors =
         Color.Teal,
         Color.Purple,
     )
+
+var blueLineColors: List<Color> = LightBlueLineColors
 val TrebleLineColor = Color.Red
 
 val BlueLineWidth = 4.dp
@@ -61,14 +78,17 @@ data class BlueLineDetail(
 fun blueLineDetails(
     places: List<Int>,
     huntBells: List<Int>,
-): List<BlueLineDetail> = places
-    .mapIndexedTo(mutableListOf()) { index, it ->
-        BlueLineDetail(it, BlueLineColors[index % BlueLineColors.size], BlueLineWidth)
-    }.apply {
-        huntBells.forEach {
-            add(0, BlueLineDetail(it, TrebleLineColor, TrebleLineWidth))
+): List<BlueLineDetail> {
+    val colors = blueLineColors
+    return places
+        .mapIndexedTo(mutableListOf()) { index, it ->
+            BlueLineDetail(it, colors[index % colors.size], BlueLineWidth)
+        }.apply {
+            huntBells.forEach {
+                add(0, BlueLineDetail(it, TrebleLineColor, TrebleLineWidth))
+            }
         }
-    }
+}
 
 fun calculateBlueLineStyle(
     measurer: TextMeasurer,
@@ -108,6 +128,7 @@ fun calculateBlueLineStyle(
 fun DrawScope.drawRows(
     rows: List<Row>,
     placeCharResults: List<TextLayoutResult>,
+    textColor: Color,
     topLeft: Offset,
     blueLines: List<BlueLineDetail>,
     ruleoffsEvery: Int,
@@ -125,7 +146,7 @@ fun DrawScope.drawRows(
             val result = placeCharResults[d - 1]
             drawText(
                 result,
-                color = Color.Black,
+                color = textColor,
                 topLeft =
                 Offset(
                     x = topLeft.x + index * spacing + (spacing - result.size.width) / 2,
@@ -145,14 +166,12 @@ fun DrawScope.drawRows(
     }
     rules.forEach { idx ->
         drawLine(
-            Color.Black,
-            start =
-            Offset(
+            textColor,
+            start = Offset(
                 topLeft.x,
                 topLeft.y + spacing * idx - (0.5).dp.toPx(),
             ),
-            end =
-            Offset(
+            end = Offset(
                 topLeft.x + size.width,
                 topLeft.y + spacing * idx - (0.5).dp.toPx(),
             ),
@@ -192,15 +211,16 @@ fun DrawScope.drawLeadIndicators(
     blueLineStyle: TextStyle,
     bells: List<Int>,
     topLeft: Offset,
+    textColor: Color,
 ): IntSize {
     val placeStyle = blueLineStyle.copy(fontSize = blueLineStyle.fontSize * 2)
-    var height: Int = 0
-    var width: Int = 0
+    var height = 0
+    var width = 0
     bells.forEachIndexed { idx, bell ->
         val startPlaceResult = measurer.measure(bell.toBellChar(), style = placeStyle)
 
         drawCircle(
-            color = BlueLineColors[0],
+            color = blueLineColors[0],
             radius = startPlaceResult.size.height / 2f,
             center =
             Offset(
@@ -212,7 +232,7 @@ fun DrawScope.drawLeadIndicators(
 
         drawText(
             startPlaceResult,
-            color = Color.Black,
+            color = textColor,
             topLeft =
             Offset(
                 x = topLeft.x + (startPlaceResult.size.height - startPlaceResult.size.width) / 2 + width,

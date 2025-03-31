@@ -1,9 +1,7 @@
 package com.jpd.methodcards.data
 
-import androidx.room.AutoMigration
 import androidx.room.ConstructedBy
 import androidx.room.Database
-import androidx.room.DeleteColumn
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.Relation
@@ -13,6 +11,7 @@ import androidx.room.RoomDatabaseConstructor
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
 import androidx.room.migration.AutoMigrationSpec
+import androidx.room.migration.Migration
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 import com.jpd.methodcards.domain.CallDetails
@@ -24,12 +23,6 @@ import com.jpd.methodcards.domain.PlaceNotation
 @Database(
     entities = [MethodEntity::class, CallEntity::class, SelectionEntity::class, MethodStatisticsEntity::class],
     version = 8,
-    autoMigrations = [
-        AutoMigration(from = 4, to = 5, spec = AppAutoMigration::class),
-        AutoMigration(from = 5, to = 6),
-        AutoMigration(from = 6, to = 7, spec = ChangeClassification::class),
-        AutoMigration(from = 7, to = 8, spec = RemoveCover::class),
-    ],
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 @TypeConverters(PlaceNotationTypeConverter::class)
@@ -161,5 +154,8 @@ class ChangeClassification : AutoMigrationSpec {
     }
 }
 
-@DeleteColumn(tableName = "CallEntity", columnName = "cover")
-class RemoveCover : AutoMigrationSpec
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE CallEntity DROP COLUMN cover")
+    }
+}

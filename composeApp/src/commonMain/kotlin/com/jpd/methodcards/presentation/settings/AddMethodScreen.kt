@@ -11,15 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -28,11 +24,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jpd.methodcards.data.MethodCardsPreferences
 import com.jpd.methodcards.data.MethodRepository
 import com.jpd.methodcards.di.MethodCardDi.getMethodCardsPreferences
@@ -41,7 +40,6 @@ import com.jpd.methodcards.domain.MethodFrequency
 import com.jpd.methodcards.domain.MethodWithCalls
 import com.jpd.methodcards.domain.PlaceNotation
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,23 +47,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlin.reflect.KClass
 
 @Composable
-fun AddMethodScreen(
-    modifier: Modifier,
-    onBack: () -> Unit,
-) {
-    val scope = rememberCoroutineScope()
-    val controller = remember(scope) {
-        AddMethodController(scope)
-    }
+fun AddMethodScreen(modifier: Modifier) {
+    val controller: AddMethodController = viewModel(factory = AddMethodController.Factory)
     val model = controller.uiState.collectAsState().value
 
     if (model != null) {
         AddMethodView(
             model = model,
             modifier = modifier,
-            onBack = onBack,
             stageUpdated = remember(controller) { controller::stageUpdated },
             nameUpdated = remember(controller) { controller::nameUpdated },
             placeNotationUpdated = remember(controller) { controller::placeNotationUpdated },
@@ -81,7 +73,6 @@ fun AddMethodScreen(
 fun AddMethodView(
     model: AddMethodUiModel,
     modifier: Modifier = Modifier,
-    onBack: () -> Unit,
     stageUpdated: (Int) -> Unit,
     nameUpdated: (String) -> Unit,
     placeNotationUpdated: (String) -> Unit,
@@ -90,19 +81,6 @@ fun AddMethodView(
     ) -> Unit,
 ) {
     Column(modifier = modifier.padding(horizontal = 20.dp).verticalScroll(rememberScrollState())) {
-        Row(
-            modifier = Modifier.fillMaxWidth().heightIn(56.dp).padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // IconButton(onClick = onBack) {
-            //     Icon(Icons.AutoMirrored.Default.ArrowBack, contentDescription = "Back")
-            // }
-            Box(modifier = Modifier.weight(1f))
-            IconButton(onClick = onBack) {
-                Icon(Icons.Default.Close, contentDescription = "Close")
-            }
-        }
-
         var name by remember { mutableStateOf("") }
         var placeNotation by remember { mutableStateOf("") }
         var stage by remember { mutableStateOf(model.stage) }
@@ -142,8 +120,12 @@ fun AddMethodView(
         }
         Spacer(Modifier.height(4.dp))
         OutlinedTextField(
-            name, { name = it
-                  nameUpdated(name)}, label = { Text("Name") }, modifier = Modifier.fillMaxWidth(),
+            name,
+            {
+                name = it
+                nameUpdated(name)
+            },
+            label = { Text("Name") }, modifier = Modifier.fillMaxWidth(),
             isError = !model.nameError.isNullOrEmpty(), supportingText = model.nameError?.let { { Text(it) } },
         )
         Spacer(Modifier.height(4.dp))
@@ -179,11 +161,14 @@ fun AddMethodView(
         Spacer(Modifier.height(4.dp))
         OutlinedTextField(
             placeNotation,
-            { placeNotation = it
-            placeNotationUpdated(it) },
+            {
+                placeNotation = it
+                placeNotationUpdated(it)
+            },
             label = { Text("Place Notation") },
             modifier = Modifier.fillMaxWidth(),
-            isError = !model.placeNotationError.isNullOrEmpty(), supportingText = model.placeNotationError?.let { { Text(it) } },
+            isError = !model.placeNotationError.isNullOrEmpty(),
+            supportingText = model.placeNotationError?.let { { Text(it) } },
         )
         Spacer(Modifier.height(4.dp))
         Row {
@@ -215,10 +200,11 @@ fun AddMethodView(
     }
 }
 
-private val MethodClassification.display: String get() = when (this) {
-    MethodClassification.None -> "None"
-    else -> this.part
-}
+private val MethodClassification.display: String
+    get() = when (this) {
+        MethodClassification.None -> "None"
+        else -> this.part
+    }
 
 data class AddMethodUiModel(
     val stage: Int,
@@ -227,11 +213,10 @@ data class AddMethodUiModel(
 )
 
 class AddMethodController(
-    private val scope: CoroutineScope,
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val methodRepository: MethodRepository = MethodRepository(),
     private val preferences: MethodCardsPreferences = getMethodCardsPreferences(),
-) {
+) : ViewModel() {
     private val _uiState = MutableStateFlow<AddMethodUiModel?>(null)
     val uiState: StateFlow<AddMethodUiModel?> = _uiState.asStateFlow()
 
@@ -240,7 +225,7 @@ class AddMethodController(
     private val placeNotation = MutableStateFlow("")
 
     init {
-        scope.launch(defaultDispatcher) {
+        viewModelScope.launch(defaultDispatcher) {
             stageFlow.value = preferences.observeStage().first()
 
             val nameError = combine(stageFlow, nameFlow) { stage, name ->
@@ -310,7 +295,7 @@ class AddMethodController(
         ruleoffsEvery: Int,
         ruleoffsFrom: Int,
     ) {
-        scope.launch {
+        viewModelScope.launch {
             val method = MethodWithCalls(
                 name,
                 PlaceNotation(placeNotation),
@@ -324,6 +309,13 @@ class AddMethodController(
                 false,
             )
             methodRepository.addMethod(method)
+        }
+    }
+
+    object Factory : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
+            return AddMethodController() as T
         }
     }
 }

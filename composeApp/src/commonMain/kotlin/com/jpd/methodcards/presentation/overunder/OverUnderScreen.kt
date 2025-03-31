@@ -9,107 +9,127 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
 import com.jpd.methodcards.data.MethodCardsPreferences
 import com.jpd.methodcards.data.MethodRepository
 import com.jpd.methodcards.di.MethodCardDi.getMethodCardsPreferences
 import com.jpd.methodcards.domain.PlaceNotation
 import com.jpd.methodcards.domain.toBellChar
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.reflect.KClass
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun OverUnderScreen(
     modifier: Modifier = Modifier,
-    onBack: () -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
-    val controller = remember(scope, onBack) { OverUnderController(scope, onBack) }
-    DisposableEffect(controller) {
-        onDispose {
-            controller.onCleared()
-        }
-    }
+    val controller: OverUnderController = viewModel(
+        factory = OverUnderController.Factory,
+    )
 
     val onNext = remember(controller) { controller::onNext }
     val onUnderSelected = remember(controller) { controller::onUnderSelected }
     val onOverSelected = remember(controller) { controller::onOverSelected }
-    val onTopBarBack = remember(controller) { controller::onBack }
 
-    val model = controller.uiState.collectAsState().value
+    val controllerModel = controller.uiState.collectAsState().value
 
-    if (model != null) {
-        Column(modifier = modifier) {
-            Row(
-                modifier = Modifier.fillMaxWidth().heightIn(56.dp).padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onTopBarBack) {
-                    Icon(Icons.AutoMirrored.Default.ArrowBack, contentDescription = "Back")
+    BackHandler(controllerModel != null && controllerModel is OverUnderUiModel.MethodsList) {
+        controller.onBack()
+    }
+
+    if (controllerModel != null) {
+        AnimatedContent(
+            targetState = controllerModel,
+            modifier = modifier.fillMaxSize(),
+            contentKey = { controllerModel.stage },
+            transitionSpec = {
+                val direction = if (targetState.stage > this.initialState.stage) {
+                    AnimatedContentTransitionScope.SlideDirection.Start
+                } else {
+                    AnimatedContentTransitionScope.SlideDirection.End
                 }
-                Text("Over Under Methods")
-            }
-            AnimatedContent(
-                targetState = model,
-                modifier = Modifier.fillMaxSize(),
-                contentKey = { model.stage },
-                transitionSpec = {
-                    val direction = if (targetState.stage > this.initialState.stage) {
-                        AnimatedContentTransitionScope.SlideDirection.Start
-                    } else {
-                        AnimatedContentTransitionScope.SlideDirection.End
-                    }
-                    slideIntoContainer(direction)
-                        .togetherWith(slideOutOfContainer(direction))
-                },
-            ) { model ->
-                when (model) {
-                    is OverUnderUiModel.MethodSelection -> {
-                        OverUnderMethodSelection(
-                            unders = model.unders,
-                            overs = model.overs,
-                            onNext = onNext,
-                            onUnderSelected = onUnderSelected,
-                            onOverSelected = onOverSelected,
-                        )
-                    }
+                slideIntoContainer(direction)
+                    .togetherWith(slideOutOfContainer(direction))
+            },
+        ) { model ->
+            when (model) {
+                is OverUnderUiModel.MethodSelection -> {
+                    OverUnderMethodSelection(
+                        unders = model.unders,
+                        overs = model.overs,
+                        onNext = onNext,
+                        onUnderSelected = onUnderSelected,
+                        onOverSelected = onOverSelected,
+                    )
+                }
 
-                    is OverUnderUiModel.MethodsList -> {
-                        OverUnderMethodsList(
-                            methods = model.methods,
-                        )
-                    }
+                is OverUnderUiModel.MethodsList -> {
+                    OverUnderMethodsList(
+                        methods = model.methods,
+                    )
                 }
             }
         }
     } else {
         Box(modifier)
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun OverUnderTopBar(
+    backStackEntry: NavBackStackEntry,
+    navigationIcon: @Composable () -> Unit,
+) {
+    val controller: OverUnderController = viewModel(
+        viewModelStoreOwner = backStackEntry,
+        factory = OverUnderController.Factory,
+    )
+    TopAppBar(
+        title = { Text("Over Under Methods") },
+        navigationIcon = {
+            val model = controller.uiState.collectAsState().value
+            if (model != null && model is OverUnderUiModel.MethodsList) {
+                IconButton(onClick = controller::onBack) {
+                    Icon(Icons.AutoMirrored.Default.ArrowBack, contentDescription = "Back")
+                }
+            } else {
+                navigationIcon()
+            }
+        },
+    )
 }
 
 @Composable
@@ -202,12 +222,10 @@ private val OverUnderUiModel.stage: Int
     }
 
 private class OverUnderController(
-    private val scope: CoroutineScope,
-    private val onNavigateBack: () -> Unit,
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val methodRepository: MethodRepository = MethodRepository(),
     methodCardsPreferences: MethodCardsPreferences = getMethodCardsPreferences(),
-) {
+) : ViewModel() {
     private val _uiState = MutableStateFlow<OverUnderUiModel?>(null)
     val uiState = _uiState.asStateFlow()
 
@@ -216,7 +234,7 @@ private class OverUnderController(
     private val overs = MutableStateFlow(emptySet<String>())
 
     init {
-        scope.launch(defaultDispatcher) {
+        viewModelScope.launch(defaultDispatcher) {
             val methodsFlow = combine(
                 methodRepository.observeSelectedMethods(),
                 methodCardsPreferences.observeStage(),
@@ -254,14 +272,14 @@ private class OverUnderController(
                                         listOf(
                                             underNotation.sequences[0].dropLast(1).plus("1$lastDigit"),
                                             underNotation.sequences[1],
-                                        )
+                                        ),
                                     ) to "1$lastDigit"
                                 } else if (fs == "1$lastDigit") {
                                     PlaceNotation(
                                         listOf(
                                             underNotation.sequences[0].dropLast(1).plus("$minusOne$lastDigit"),
                                             underNotation.sequences[1],
-                                        )
+                                        ),
                                     ) to "$minusOne$lastDigit"
                                 } else {
                                     null
@@ -278,14 +296,14 @@ private class OverUnderController(
                                         listOf(
                                             overNotation.sequences[0],
                                             overNotation.sequences[1].dropLast(1).plus("1$lastDigit"),
-                                        )
+                                        ),
                                     ) to "1$lastDigit"
                                 } else if (fs == "1$lastDigit") {
                                     PlaceNotation(
                                         listOf(
                                             overNotation.sequences[0],
                                             overNotation.sequences[1].dropLast(1).plus("$minusOne$lastDigit"),
-                                        )
+                                        ),
                                     ) to "$minusOne$lastDigit"
                                 } else {
                                     null
@@ -349,14 +367,14 @@ private class OverUnderController(
     }
 
     fun onBack() {
-        if (stage.value == 1) {
-            onNavigateBack()
-        } else {
-            stage.value = 1
-        }
+        stage.value = 1
     }
 
-    fun onCleared() {
+    object Factory : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
+            return OverUnderController() as T
+        }
     }
 }
 

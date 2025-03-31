@@ -13,6 +13,7 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.w3c.dom.events.KeyboardEvent
 
+@Suppress("OPT_IN_USAGE")
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     GlobalScope.launch {

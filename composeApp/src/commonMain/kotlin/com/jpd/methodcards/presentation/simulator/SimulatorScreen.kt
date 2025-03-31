@@ -38,7 +38,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -61,6 +60,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
 import com.jpd.methodcards.data.MethodCardsPreferences
 import com.jpd.methodcards.data.MethodRepository
 import com.jpd.methodcards.di.MethodCardDi.getMethodCardsPreferences
@@ -73,16 +79,15 @@ import com.jpd.methodcards.presentation.KeyDirection
 import com.jpd.methodcards.presentation.KeyEvent
 import com.jpd.methodcards.presentation.LocalKeyEvents
 import com.jpd.methodcards.presentation.NoMethodSelectedView
-import com.jpd.methodcards.presentation.blueline.BlueLineColors
 import com.jpd.methodcards.presentation.blueline.BlueLineStroke
 import com.jpd.methodcards.presentation.blueline.TrebleLineColor
 import com.jpd.methodcards.presentation.blueline.TrebleLineStroke
+import com.jpd.methodcards.presentation.blueline.blueLineColors
 import com.jpd.methodcards.presentation.icons.South
 import com.jpd.methodcards.presentation.icons.SouthEast
 import com.jpd.methodcards.presentation.icons.SouthWest
 import com.jpd.methodcards.presentation.ui.MultiMethodTopBar
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.coroutineScope
@@ -97,6 +102,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.min
+import kotlin.reflect.KClass
 
 private const val SimulatorExplainer = "On this screen you can select any number of methods from those currently " +
     "enabled, and then practise ringing it.\n\n" +
@@ -109,26 +115,16 @@ expect val SHOW_KEY_HINT: Boolean
 @Composable
 fun SimulatorScreen(
     modifier: Modifier = Modifier,
-    showSimulatorBottomSheet: () -> Unit,
     navigateToAppSettings: () -> Unit,
-    navigateToMultiMethodSelection: () -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
-    val controller = remember(scope) { SimulatorController(scope) }
-    DisposableEffect(controller) {
-        onDispose {
-            controller.onCleared()
-        }
-    }
+    val controller: SimulatorController = viewModel(factory = SimulatorController.Factory)
     val model = controller.uiState.collectAsState().value
 
     if (model != null) {
         SimulatorView(
             model = model,
             modifier = modifier,
-            settingsClicked = showSimulatorBottomSheet,
             addMethodClicked = navigateToAppSettings,
-            navigateToMultiMethodSelection = navigateToMultiMethodSelection,
         )
     } else {
         Box(modifier)
@@ -139,19 +135,10 @@ fun SimulatorScreen(
 private fun SimulatorView(
     model: SimulatorUiModel,
     modifier: Modifier,
-    settingsClicked: () -> Unit,
     addMethodClicked: () -> Unit,
-    navigateToMultiMethodSelection: () -> Unit,
 ) {
-    var showExplainer by remember { mutableStateOf(false) }
     var showFullStats by remember { mutableStateOf(false) }
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        MultiMethodTopBar(
-            (model as? SimulatorMethodsModel)?.selectionDescription,
-            explainerClicked = { showExplainer = true },
-            settingsClicked = settingsClicked,
-            navigateToMultiMethodSelection = navigateToMultiMethodSelection,
-        )
         if (model is SimulatorMethodsModel) {
             SimulatorLineAndInputs(model.state, seeFullStats = { showFullStats = true })
         } else {
@@ -159,18 +146,6 @@ private fun SimulatorView(
         }
     }
 
-    if (showExplainer) {
-        AlertDialog(
-            onDismissRequest = { showExplainer = false },
-            confirmButton = {},
-            title = {
-                Text("Simulator Screen")
-            },
-            text = {
-                Text(SimulatorExplainer)
-            },
-        )
-    }
     if (showFullStats) {
         AlertDialog(
             onDismissRequest = { showFullStats = false },
@@ -205,6 +180,40 @@ private fun SimulatorView(
                         }
                     }
                 }
+            },
+        )
+    }
+}
+
+@Composable
+fun SimulatorTopBar(
+    backStackEntry: NavBackStackEntry,
+    navigateToMultiMethodSelection: () -> Unit,
+    showSimulatorBottomSheet: () -> Unit,
+    navigationIcon: @Composable () -> Unit,
+) {
+    val controller: SimulatorController = viewModel(
+        viewModelStoreOwner = backStackEntry, factory = SimulatorController.Factory)
+
+    val model = controller.uiState.collectAsStateWithLifecycle().value
+    var showExplainer by remember { mutableStateOf(false) }
+    MultiMethodTopBar(
+        (model as? SimulatorMethodsModel)?.selectionDescription,
+        explainerClicked = { showExplainer = true },
+        settingsClicked = showSimulatorBottomSheet,
+        navigateToMultiMethodSelection = navigateToMultiMethodSelection,
+        navigationIcon = navigationIcon,
+    )
+
+    if (showExplainer) {
+        AlertDialog(
+            onDismissRequest = { showExplainer = false },
+            confirmButton = {},
+            title = {
+                Text("Simulator Screen")
+            },
+            text = {
+                Text(SimulatorExplainer)
             },
         )
     }
@@ -250,7 +259,7 @@ private fun SimulatorLineAndInputs(state: SimulatorState?, seeFullStats: () -> U
                         icon = Icons.Filled.SouthEast,
                         eventCallback = eventCallback,
                         keyHint = "d",
-                        tint = BlueLineColors[0],
+                        tint = blueLineColors[0],
                     )
                     DirectionArrow(
                         direction = KeyDirection.S,
@@ -258,7 +267,7 @@ private fun SimulatorLineAndInputs(state: SimulatorState?, seeFullStats: () -> U
                         icon = Icons.Filled.South,
                         eventCallback = eventCallback,
                         keyHint = "s",
-                        tint = BlueLineColors[0],
+                        tint = blueLineColors[0],
                     )
                     DirectionArrow(
                         direction = KeyDirection.A,
@@ -266,7 +275,7 @@ private fun SimulatorLineAndInputs(state: SimulatorState?, seeFullStats: () -> U
                         icon = Icons.Filled.SouthWest,
                         eventCallback = eventCallback,
                         keyHint = "a",
-                        tint = BlueLineColors[0],
+                        tint = blueLineColors[0],
                     )
                 }
                 Spacer(modifier = Modifier.weight(1f))
@@ -276,7 +285,7 @@ private fun SimulatorLineAndInputs(state: SimulatorState?, seeFullStats: () -> U
                         modifier = Modifier.size(96.dp),
                         icon = Icons.Filled.SouthEast,
                         eventCallback = eventCallback,
-                        tint = BlueLineColors[1],
+                        tint = blueLineColors[1],
                         keyHint = "j",
                     )
                     DirectionArrow(
@@ -284,7 +293,7 @@ private fun SimulatorLineAndInputs(state: SimulatorState?, seeFullStats: () -> U
                         modifier = Modifier.size(96.dp),
                         icon = Icons.Filled.South,
                         eventCallback = eventCallback,
-                        tint = BlueLineColors[1],
+                        tint = blueLineColors[1],
                         keyHint = "k",
                     )
                     DirectionArrow(
@@ -292,7 +301,7 @@ private fun SimulatorLineAndInputs(state: SimulatorState?, seeFullStats: () -> U
                         modifier = Modifier.size(96.dp),
                         icon = Icons.Filled.SouthWest,
                         eventCallback = eventCallback,
-                        tint = BlueLineColors[1],
+                        tint = blueLineColors[1],
                         keyHint = "l",
                     )
                 }
@@ -453,7 +462,7 @@ private fun SimulatorLine(
 
                     if (row.isLeadEnd) {
                         drawLine(
-                            Color.Black,
+                            lineColor,
                             start = Offset(xOffset - spacing / 2, y - spacing / 2),
                             end =
                             Offset(
@@ -489,7 +498,7 @@ private fun SimulatorLine(
                         callTextTop = (y - callResult.size.height / 2).coerceAtMost(maxY)
                         drawText(
                             callResult,
-                            color = Color.Black,
+                            color = lineColor,
                             topLeft =
                             Offset((size.width + totalWidth) / 2, callTextTop),
                         )
@@ -499,13 +508,13 @@ private fun SimulatorLine(
                     rowIdx--
                 }
 
-                with(c1Path) { drawPath(BlueLineColors[2], TrebleLineStroke) }
-                with(c2Path) { drawPath(BlueLineColors[3], TrebleLineStroke) }
+                with(c1Path) { drawPath(blueLineColors[2], TrebleLineStroke) }
+                with(c2Path) { drawPath(blueLineColors[3], TrebleLineStroke) }
                 with(tPath) { drawPath(TrebleLineColor, TrebleLineStroke) }
                 if (path2 != null) {
-                    with(path2) { drawPath(BlueLineColors[1], BlueLineStroke) }
+                    with(path2) { drawPath(blueLineColors[1], BlueLineStroke) }
                 }
-                with(path) { drawPath(BlueLineColors[0], BlueLineStroke) }
+                with(path) { drawPath(blueLineColors[0], BlueLineStroke) }
             }
         }
     }
@@ -698,16 +707,15 @@ private data object SimulatorEmptyModel : SimulatorUiModel()
 
 @OptIn(ExperimentalCoroutinesApi::class)
 private class SimulatorController(
-    private val scope: CoroutineScope,
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val methodRepository: MethodRepository = MethodRepository(),
     methodCardsPreferences: MethodCardsPreferences = getMethodCardsPreferences(),
-) {
+) : ViewModel() {
     private val _uiState = MutableStateFlow<SimulatorUiModel?>(null)
     val uiState = _uiState.asStateFlow()
 
     init {
-        scope.launch(defaultDispatcher) {
+        viewModelScope.launch(defaultDispatcher) {
             val persistModel = methodRepository.getSimulatorModel()
             combine(
                 methodRepository.observeSelectedMethods(),
@@ -785,7 +793,7 @@ private class SimulatorController(
         }
     }
 
-    fun onCleared() {
+    override fun onCleared() {
         (_uiState.value as? SimulatorMethodsModel)?.state?.persist()
             ?.let { persistModel(it) }
     }
@@ -795,8 +803,15 @@ private class SimulatorController(
     }
 
     private fun updateMethodStatistics(method: MethodWithCalls, lead: Int, error: Boolean) {
-        scope.launch {
+        viewModelScope.launch {
             methodRepository.incrementMethodStatistics(method, lead, error)
+        }
+    }
+
+    object Factory : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
+            return SimulatorController() as T
         }
     }
 }

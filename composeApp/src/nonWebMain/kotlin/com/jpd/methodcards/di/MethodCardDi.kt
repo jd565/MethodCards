@@ -8,6 +8,7 @@ import androidx.room.RoomDatabase
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.jpd.methodcards.data.AppDatabase
+import com.jpd.methodcards.data.MIGRATION_7_8
 import com.jpd.methodcards.data.MethodCardsDataStorePreferences
 import com.jpd.methodcards.data.MethodCardsPreferences
 import com.jpd.methodcards.data.MethodDao
@@ -46,8 +47,10 @@ private val persistedMethodLibraryVersionKey = intPreferencesKey("method_library
 private val database: AppDatabase by lazy {
     MethodCardNonWebDi.databaseBuilder
         .fallbackToDestructiveMigrationOnDowngrade(true)
+        .fallbackToDestructiveMigrationFrom(true, 1, 2, 3, 4, 5, 6)
         .setDriver(BundledSQLiteDriver())
         .setQueryCoroutineContext(Dispatchers.Default)
+        .addMigrations(MIGRATION_7_8)
         .addCallback(
             object : RoomDatabase.Callback() {
                 override fun onOpen(connection: SQLiteConnection) {

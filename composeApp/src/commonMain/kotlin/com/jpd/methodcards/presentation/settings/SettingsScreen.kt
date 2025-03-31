@@ -33,6 +33,7 @@ import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -46,11 +47,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
 import com.jpd.methodcards.data.MethodRepository
 import com.jpd.methodcards.domain.MethodSelection
 import com.jpd.methodcards.domain.MethodWithCalls
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -60,6 +66,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
+import kotlin.reflect.KClass
 
 private const val SettingsExplainer =
     "On this screen you can select how many bells (stage), and which methods should " +
@@ -68,11 +75,9 @@ private const val SettingsExplainer =
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
-    navigateToAddMethod: () -> Unit,
     navigateToBlueline: (String) -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
-    val controller = remember(scope) { SettingsController(scope) }
+    val controller: SettingsController = viewModel(factory = SettingsController.Factory)
     val model = controller.uiState.collectAsState().value
 
     if (model != null) {
@@ -82,11 +87,46 @@ fun SettingsScreen(
             setStage = remember(controller) { controller::setStage },
             selectMethod = remember(controller) { controller::methodSelected },
             setSearchTerm = remember(controller) { controller::setSearchTerm },
-            addMethodClicked = navigateToAddMethod,
             openBlueline = navigateToBlueline,
         )
     } else {
         Box(modifier)
+    }
+}
+
+@Suppress("UNUSED_PARAMETER")
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsTopBar(
+    backStackEntry: NavBackStackEntry,
+    navigateToAddMethod: () -> Unit,
+    navigationIcon: @Composable () -> Unit,
+) {
+    var showExplainer by remember { mutableStateOf(false) }
+    TopAppBar(
+        title = { Text("Methods Selection") },
+        navigationIcon = navigationIcon,
+        actions = {
+            IconButton(onClick = { showExplainer = true }) {
+                Icon(Icons.Outlined.Info, contentDescription = "Explainer")
+            }
+            IconButton(onClick = navigateToAddMethod) {
+                Icon(Icons.Default.Add, contentDescription = "Add Method")
+            }
+        }
+    )
+
+    if (showExplainer) {
+        AlertDialog(
+            onDismissRequest = { showExplainer = false },
+            confirmButton = {},
+            title = {
+                Text("Settings Screen")
+            },
+            text = {
+                Text(SettingsExplainer)
+            },
+        )
     }
 }
 
@@ -98,25 +138,9 @@ private fun SettingsView(
     setStage: (Int) -> Unit,
     selectMethod: (String) -> Unit,
     setSearchTerm: (String) -> Unit,
-    addMethodClicked: () -> Unit,
     openBlueline: (String) -> Unit,
 ) {
-    var showExplainer by remember { mutableStateOf(false) }
-    val explainerClicked = { showExplainer = true }
     Column(modifier) {
-        Row(
-            modifier = Modifier.fillMaxWidth().heightIn(56.dp).padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = explainerClicked) {
-                Icon(Icons.Outlined.Info, contentDescription = "Explainer")
-            }
-            Box(modifier = Modifier.weight(1f))
-            IconButton(onClick = addMethodClicked) {
-                Icon(Icons.Default.Add, contentDescription = "Add Method")
-            }
-        }
-
         Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             var expanded by remember { mutableStateOf(false) }
             ExposedDropdownMenuBox(
@@ -215,19 +239,6 @@ private fun SettingsView(
             }
         }
     }
-
-    if (showExplainer) {
-        AlertDialog(
-            onDismissRequest = { showExplainer = false },
-            confirmButton = {},
-            title = {
-                Text("Settings Screen")
-            },
-            text = {
-                Text(SettingsExplainer)
-            },
-        )
-    }
 }
 
 private data class SettingsUiModel(
@@ -237,10 +248,9 @@ private data class SettingsUiModel(
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 private class SettingsController(
-    private val scope: CoroutineScope,
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val methodRepository: MethodRepository = MethodRepository(),
-) {
+) : ViewModel() {
     private val _uiState = MutableStateFlow<SettingsUiModel?>(null)
     val uiState: StateFlow<SettingsUiModel?> = _uiState.asStateFlow()
 
@@ -268,22 +278,29 @@ private class SettingsController(
             }
         }
             .onEach { _uiState.value = it }
-            .launchIn(scope + defaultDispatcher)
+            .launchIn(viewModelScope + defaultDispatcher)
     }
 
     fun setStage(stage: Int) {
-        scope.launch {
+        viewModelScope.launch {
             methodRepository.setStage(stage)
         }
     }
 
     fun methodSelected(method: String) {
-        scope.launch {
+        viewModelScope.launch {
             methodRepository.selectOrDeselectMethod(method)
         }
     }
 
     fun setSearchTerm(term: String) {
         searchTerm.value = term
+    }
+
+    object Factory: ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
+            return SettingsController() as T
+        }
     }
 }

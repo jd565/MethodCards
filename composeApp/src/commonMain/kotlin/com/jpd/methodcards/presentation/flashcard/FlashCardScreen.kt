@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,7 +19,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +27,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
 import com.jpd.methodcards.data.MethodRepository
 import com.jpd.methodcards.domain.MethodWithCalls
 import com.jpd.methodcards.domain.toBellChar
@@ -37,7 +44,6 @@ import com.jpd.methodcards.presentation.blueline.drawLeadIndicators
 import com.jpd.methodcards.presentation.blueline.drawRows
 import com.jpd.methodcards.presentation.ui.MultiMethodTopBar
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,6 +55,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.plus
+import kotlin.reflect.KClass
 
 private const val FlashCardExplainer = "On this screen you can select a number of methods and it will prompt you " +
     "with a method and place bell. You can think about what that place bell does and then reveal the answer to check."
@@ -57,10 +64,8 @@ private const val FlashCardExplainer = "On this screen you can select a number o
 fun FlashCardScreen(
     modifier: Modifier = Modifier,
     navigateToAppSettings: () -> Unit,
-    navigateToMultiMethodSelection: () -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
-    val controller = remember(scope) { FlashCardController(scope) }
+    val controller: FlashCardController = viewModel(factory = FlashCardController.Factory)
     val model = controller.uiState.collectAsState().value
 
     if (model != null) {
@@ -69,7 +74,6 @@ fun FlashCardScreen(
             modifier = modifier,
             nextCard = remember(controller) { controller::nextCard },
             addMethodClicked = navigateToAppSettings,
-            navigateToMultiMethodSelection = navigateToMultiMethodSelection,
         )
     } else {
         Box(modifier)
@@ -77,30 +81,25 @@ fun FlashCardScreen(
 }
 
 @Composable
-private fun FlashCardView(
-    model: FlashCardUiModel,
-    modifier: Modifier,
-    nextCard: () -> Unit,
-    addMethodClicked: () -> Unit,
+fun FlashCardTopBar(
+    backStackEntry: NavBackStackEntry,
     navigateToMultiMethodSelection: () -> Unit,
+    navigationIcon: @Composable () -> Unit,
 ) {
+    val controller: FlashCardController = viewModel(
+        viewModelStoreOwner = backStackEntry,
+        factory = FlashCardController.Factory
+    )
+
+    val model = controller.uiState.collectAsStateWithLifecycle().value
     var showExplainer by remember { mutableStateOf(false) }
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        MultiMethodTopBar(
-            (model as? FlashCardMethodModel)?.selectionDescription,
-            explainerClicked = { showExplainer = true },
-            settingsClicked = {},
-            navigateToMultiMethodSelection = navigateToMultiMethodSelection,
-        )
-        if (model is FlashCardMethodModel) {
-            FlashCardContent(model, nextCard, modifier = Modifier.weight(1f))
-        } else {
-            NoMethodSelectedView(
-                modifier = Modifier.weight(1f),
-                addMethodClicked = addMethodClicked,
-            )
-        }
-    }
+    MultiMethodTopBar(
+        (model as? FlashCardMethodModel)?.selectionDescription,
+        explainerClicked = { showExplainer = true },
+        settingsClicked = {},
+        navigateToMultiMethodSelection = navigateToMultiMethodSelection,
+        navigationIcon = navigationIcon,
+    )
 
     if (showExplainer) {
         AlertDialog(
@@ -113,6 +112,25 @@ private fun FlashCardView(
                 Text(FlashCardExplainer)
             },
         )
+    }
+}
+
+@Composable
+private fun FlashCardView(
+    model: FlashCardUiModel,
+    modifier: Modifier,
+    nextCard: () -> Unit,
+    addMethodClicked: () -> Unit,
+) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        if (model is FlashCardMethodModel) {
+            FlashCardContent(model, nextCard, modifier = Modifier.weight(1f))
+        } else {
+            NoMethodSelectedView(
+                modifier = Modifier.weight(1f),
+                addMethodClicked = addMethodClicked,
+            )
+        }
     }
 }
 
@@ -148,16 +166,17 @@ private fun FlashCardContent(
     ) {
         Box(
             modifier =
-            Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    alpha = if (revealed.value) 1f else 0f
-                },
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        alpha = if (revealed.value) 1f else 0f
+                    },
             contentAlignment = Alignment.Center,
         ) {
             val placeMeasurer = rememberTextMeasurer()
             val measurer = rememberTextMeasurer(model.method.stage)
             val lead = model.method.leads[0].lead
+            val textColor = LocalContentColor.current
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val style =
                     calculateBlueLineStyle(
@@ -186,12 +205,13 @@ private fun FlashCardContent(
                         placeCharResults = results,
                         topLeft = Offset(startX, startY),
                         blueLines =
-                        blueLineDetails(
-                            listOf(model.place),
-                            model.method.huntBells,
-                        ),
+                            blueLineDetails(
+                                listOf(model.place),
+                                model.method.huntBells,
+                            ),
                         ruleoffsEvery = model.method.ruleoffsEvery,
                         ruleoffsFrom = model.method.ruleoffsFrom,
+                        textColor = textColor,
                     )
 
                 val startPlace = model.place
@@ -208,17 +228,18 @@ private fun FlashCardContent(
                         blueLineStyle = style,
                         bells = listOf(startPlace),
                         topLeft = Offset(startX + rowSize.width + 4.dp.toPx(), startY),
+                        textColor = textColor,
                     )
 
                 drawLeadIndicators(
                     measurer = placeMeasurer,
                     blueLineStyle = style,
                     bells = listOf(endPlace),
-                    topLeft =
-                    Offset(
+                    topLeft = Offset(
                         startX + rowSize.width + 4.dp.toPx(),
                         startY + rowSize.height - leadIndicatorSize.height,
                     ),
+                    textColor = textColor,
                 )
             }
         }
@@ -249,10 +270,9 @@ private data object FlashCardEmptyModel : FlashCardUiModel()
 
 @OptIn(ExperimentalCoroutinesApi::class)
 private class FlashCardController(
-    scope: CoroutineScope,
     defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
     methodRepository: MethodRepository = MethodRepository(),
-) {
+) : ViewModel() {
     private val _uiState = MutableStateFlow<FlashCardUiModel?>(null)
     val uiState = _uiState.asStateFlow()
 
@@ -293,7 +313,7 @@ private class FlashCardController(
                     }
                 }
             }.onEach { _uiState.value = it }
-            .launchIn(scope + defaultDispatcher)
+            .launchIn(viewModelScope + defaultDispatcher)
     }
 
     fun nextCard() {
@@ -313,6 +333,13 @@ private class FlashCardController(
             }
             last = allMethodPlaces.last()
             yieldAll(allMethodPlaces)
+        }
+    }
+
+    object Factory : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
+            return FlashCardController() as T
         }
     }
 }
