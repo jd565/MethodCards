@@ -56,6 +56,7 @@ import androidx.navigation.NavBackStackEntry
 import com.jpd.methodcards.data.MethodRepository
 import com.jpd.methodcards.domain.MethodSelection
 import com.jpd.methodcards.domain.MethodWithCalls
+import com.jpd.methodcards.presentation.MethodCardScreen
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -75,7 +76,7 @@ private const val SettingsExplainer =
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
-    navigateToBlueline: (String) -> Unit,
+    navigateToBlueline: (MethodCardScreen.SingleMethodBlueLine) -> Unit,
 ) {
     val controller: SettingsController = viewModel(factory = SettingsController.Factory)
     val model = controller.uiState.collectAsState().value
@@ -87,7 +88,7 @@ fun SettingsScreen(
             setStage = remember(controller) { controller::setStage },
             selectMethod = remember(controller) { controller::methodSelected },
             setSearchTerm = remember(controller) { controller::setSearchTerm },
-            openBlueline = navigateToBlueline,
+            openBlueline = { navigateToBlueline(MethodCardScreen.SingleMethodBlueLine(it, "", model.stage))},
         )
     } else {
         Box(modifier)

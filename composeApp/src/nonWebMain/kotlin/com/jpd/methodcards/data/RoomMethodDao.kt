@@ -32,8 +32,8 @@ class RoomMethodDao(
         return dao.getMethod(name).map { it?.toDomain() }
     }
 
-    override suspend fun searchByPlaceNotation(pn: List<PlaceNotation>): List<MethodWithCalls> {
-        return dao.searchByPlaceNotation(pn.map { it.asString() }).map { it.toDomain() }
+    override suspend fun searchByPlaceNotation(pn: PlaceNotation): MethodWithCalls? {
+        return dao.searchByPlaceNotation(pn.asString())?.toDomain()
     }
 
     override suspend fun toggleMethodSelected(name: String) {
@@ -69,6 +69,7 @@ class RoomMethodDao(
             ruleoffsEvery = method.ruleoffsEvery,
             magic = 0,
             classification = method.classification,
+            customMethod = method.customMethod,
         )
         val calls = method.calls.map { call ->
             CallEntity(
@@ -96,6 +97,7 @@ class RoomMethodDao(
                     ruleoffsEvery = method.ruleoffsEvery,
                     magic = method.magic,
                     classification = method.classification.toDomain(),
+                    customMethod = false,
                 ),
             )
             method.calls.forEach { call ->
@@ -153,9 +155,10 @@ interface RoomSqlMethodDao {
         SELECT *
         FROM MethodEntity AS m
         INNER JOIN SelectionEntity AS s on s.selectionName = m.name
-        WHERE m.placeNotation IN (:pn)
+        WHERE m.placeNotation = :pn
+        LIMIT 1
     """)
-    suspend fun searchByPlaceNotation(pn: List<String>): List<MethodWithCallsEntity>
+    suspend fun searchByPlaceNotation(pn: String): MethodWithCallsEntity?
 
     @Query("UPDATE SelectionEntity SET selected = NOT selected WHERE selectionName = :name")
     suspend fun toggleMethodSelected(name: String)

@@ -71,7 +71,7 @@ class MethodRepository(
         dao.incrementMethodStatistics(method.name, method.stage, place, error)
     }
 
-    suspend fun searchByPlaceNotations(pn: List<PlaceNotation>): List<MethodWithCalls> {
+    suspend fun searchByPlaceNotation(pn: PlaceNotation): MethodWithCalls? {
         return dao.searchByPlaceNotation(pn)
     }
 

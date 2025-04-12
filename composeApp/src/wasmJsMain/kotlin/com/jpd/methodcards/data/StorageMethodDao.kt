@@ -1,18 +1,29 @@
 package com.jpd.methodcards.data
 
 import com.jpd.MethodProto
+import com.jpd.MethodsProto
 import com.jpd.methodcards.data.library.toDomain
 import com.jpd.methodcards.domain.CallDetails
+import com.jpd.methodcards.domain.MethodClassification
 import com.jpd.methodcards.domain.MethodFrequency
 import com.jpd.methodcards.domain.MethodSelection
 import com.jpd.methodcards.domain.MethodWithCalls
 import com.jpd.methodcards.domain.PlaceNotation
+import kotlinx.browser.localStorage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.decodeFromByteArray
+import kotlinx.serialization.encodeToByteArray
+import kotlinx.serialization.protobuf.ProtoBuf
+import org.w3c.dom.get
+import org.w3c.dom.set
 import kotlin.collections.set
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 class StorageMethodDao : MethodDao {
     private val methodsByStage = MutableStateFlow(emptyMap<Int, List<MethodSelection>>())
@@ -169,10 +180,16 @@ class StorageMethodDao : MethodDao {
         val byName = mutableMapOf<String, MethodWithCalls>()
         val byStage = mutableMapOf<Int, MutableList<MethodSelection>>()
         val magic = mutableMapOf<String, Int>()
+        getCustomMethods().forEach { method ->
+            byStage.getOrPut(method.stage) { mutableListOf() }
+                .add(MethodSelection(method.name, false, PlaceNotation(method.notation)))
+            byName[method.name] = method.toDomain(true)
+            magic[method.name] = method.magic
+        }
         methods.forEach { method ->
             byStage.getOrPut(method.stage) { mutableListOf() }
                 .add(MethodSelection(method.name, false, PlaceNotation(method.notation)))
-            byName[method.name] = method.toDomain()
+            byName[method.name] = method.toDomain(false)
             magic[method.name] = method.magic
         }
         methodsByName.value = byName
@@ -180,12 +197,22 @@ class StorageMethodDao : MethodDao {
         magicByName = magic
     }
 
-    override suspend fun searchByPlaceNotation(pn: List<PlaceNotation>): List<MethodWithCalls> {
-        val targets = pn.toSet()
-        return methodsByName.value.values.filter { it.placeNotation in targets }
+    override suspend fun searchByPlaceNotation(pn: PlaceNotation): MethodWithCalls? {
+        return methodsByName.value.values.find { it.placeNotation == pn }
     }
 
+    @OptIn(ExperimentalEncodingApi::class, ExperimentalSerializationApi::class)
+    private fun getCustomMethods(): List<MethodProto> {
+        return localStorage[CUSTOM_METHODS_KEY]?.let {
+            ProtoBuf.decodeFromByteArray<MethodsProto>(Base64.UrlSafe.decode(it))
+                .methods
+        } ?: emptyList()
+    }
+
+    @OptIn(ExperimentalEncodingApi::class, ExperimentalSerializationApi::class)
     override suspend fun addMethod(method: MethodWithCalls) {
+        val newProtoMethods = MethodsProto(getCustomMethods().plus(method.toProto()))
+        localStorage[CUSTOM_METHODS_KEY] = Base64.UrlSafe.encode(ProtoBuf.encodeToByteArray(newProtoMethods))
         methodsByName.update { it + (method.name to method) }
         methodsByStage.update { byStage ->
             val newMethods = byStage.getOrElse(method.stage) { emptyList() }
@@ -200,10 +227,11 @@ class StorageMethodDao : MethodDao {
         private const val MULTI_METHOD_ENABLED_METHODS_KEY = "multiMethodEnabledMethods"
         private const val MULTI_METHOD_FREQUENCY_KEY = "multiMethodFrequency"
         private const val BLUE_LINE_METHOD_KEY = "blueLineMethod"
+        private const val CUSTOM_METHODS_KEY = "customMethods"
     }
 }
 
-private fun MethodProto.toDomain(): MethodWithCalls {
+private fun MethodProto.toDomain(customMethod: Boolean): MethodWithCalls {
     return MethodWithCalls(
         name = name,
         placeNotation = PlaceNotation(notation),
@@ -215,6 +243,7 @@ private fun MethodProto.toDomain(): MethodWithCalls {
         enabledForMultiMethod = false,
         multiMethodFrequency = MethodFrequency.Regular,
         enabledForBlueline = false,
+        customMethod = customMethod,
     )
 }
 
@@ -227,4 +256,47 @@ private fun MethodProto.CallProto.toDomain(method: MethodProto): CallDetails {
         from = from,
         every = every(method.lengthOfLead),
     )
+}
+
+private fun MethodWithCalls.toProto(): MethodProto {
+    val classificationEnd = this.classification.part
+    val nameHasClassification = this.name.endsWith(classificationEnd)
+    var shortName = name.removeSuffix(classificationEnd).trim()
+    val nameHasLittle = shortName.endsWith(" Little")
+    shortName = shortName.removeSuffix(" Little").trim()
+    return MethodProto(
+        shortName = shortName,
+        notation = placeNotation.asString(),
+        stage = stage,
+        lengthOfLead = changesInLead,
+        ruleoffsFrom = ruleoffsFrom,
+        ruleoffsEveryCompressed = ruleoffsEvery.takeIf { it != changesInLead } ?: 0,
+        standardCalls = false,
+        customCalls = calls.map { call ->
+            MethodProto.CallProto(
+                call.name,
+                call.symbol,
+                call.notation.asString(),
+                from = call.from,
+                everyCompressed = call.every.takeIf { it != changesInLead } ?: 0,
+            )
+        },
+        magic = 0,
+        classification = classification.toProto(),
+        littleClassification = nameHasLittle,
+        nameHasClassification = nameHasClassification,
+    )
+}
+
+private fun MethodClassification.toProto(): MethodProto.MethodClassificationProto = when (this) {
+    MethodClassification.None -> MethodProto.MethodClassificationProto.None
+    MethodClassification.TreblePlace -> MethodProto.MethodClassificationProto.TreblePlace
+    MethodClassification.Delight -> MethodProto.MethodClassificationProto.Delight
+    MethodClassification.Bob -> MethodProto.MethodClassificationProto.Bob
+    MethodClassification.Jump -> MethodProto.MethodClassificationProto.Jump
+    MethodClassification.Alliance -> MethodProto.MethodClassificationProto.Alliance
+    MethodClassification.Hybrid -> MethodProto.MethodClassificationProto.Hybrid
+    MethodClassification.TrebleBob -> MethodProto.MethodClassificationProto.TrebleBob
+    MethodClassification.Place -> MethodProto.MethodClassificationProto.Place
+    MethodClassification.Surprise -> MethodProto.MethodClassificationProto.Surprise
 }

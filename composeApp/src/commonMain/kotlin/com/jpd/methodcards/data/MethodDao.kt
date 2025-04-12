@@ -23,6 +23,6 @@ interface MethodDao {
         error: Boolean
     )
     suspend fun insert(methods: List<MethodProto>)
-    suspend fun searchByPlaceNotation(pn: List<PlaceNotation>): List<MethodWithCalls>
+    suspend fun searchByPlaceNotation(pn: PlaceNotation): MethodWithCalls?
     suspend fun addMethod(method: MethodWithCalls)
 }

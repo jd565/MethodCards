@@ -7,7 +7,19 @@ value class Row(
     val row: IntArray,
 ) {
     constructor(stage: Int, init: (Int) -> Int) : this(IntArray(stage) { init(it) })
-    fun nextRow(notation: String): Row {
+    fun nextRow(rowNotation: String, stage: Int): Row {
+        val notation = if (row.size < stage) {
+            error("Cannot apply notation to row of size ${row.size} with stage $stage")
+        } else if (row.size > stage) {
+            val extra = (stage+1).rangeTo(row.size).joinToString(separator = "") { it.toBellChar() }
+            if (rowNotation == "x") {
+                extra
+            } else {
+                rowNotation + extra
+            }
+        } else {
+            rowNotation
+        }
         val r = if (notation == "x") {
             // full swap
             IntArray(row.size) { idx ->

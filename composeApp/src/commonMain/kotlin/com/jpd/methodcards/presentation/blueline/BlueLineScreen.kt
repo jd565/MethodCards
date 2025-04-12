@@ -22,6 +22,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -47,18 +48,22 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.DEFAULT_ARGS_KEY
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import com.jpd.methodcards.data.MethodRepository
 import com.jpd.methodcards.domain.MethodWithCalls
+import com.jpd.methodcards.domain.PlaceNotation
 import com.jpd.methodcards.domain.toBellChar
+import com.jpd.methodcards.presentation.MethodCardScreen
 import com.jpd.methodcards.presentation.NoMethodSelectedView
+import com.jpd.methodcards.presentation.utils.toRouteOrNull
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -99,6 +104,7 @@ fun BlueLineTopBar(
     backStackEntry: NavBackStackEntry,
     selectMethod: () -> Unit,
     navigationIcon: @Composable () -> Unit,
+    navigateToSimulator: (MethodCardScreen.SingleMethodSimulator) -> Unit,
 ) {
     val controller: BlueLineController = viewModel(
         viewModelStoreOwner = backStackEntry,
@@ -133,6 +139,22 @@ fun BlueLineTopBar(
             }
         },
         actions = {
+            IconButton(onClick = {
+                when (model) {
+                    BlueLineEmptyModel -> null
+                    is BlueLineMethodsModel -> model.selectedMethod
+                    is SingleBlueLineModel -> model.method
+                    null -> null
+                }?.let { method ->
+                    navigateToSimulator(MethodCardScreen.SingleMethodSimulator(
+                        methodName = method.name,
+                        placeNotation = method.placeNotation.asString(),
+                        stage = method.stage,
+                    ))
+                }
+            }) {
+                Icon(Icons.Default.Notifications, contentDescription = "Practise")
+            }
             IconButton(onClick = { showExplainer = true }) {
                 Icon(Icons.Outlined.Info, contentDescription = "Explainer")
             }
@@ -486,50 +508,59 @@ private data class SingleBlueLineModel(
 private data object BlueLineEmptyModel : BlueLineUiModel()
 
 private class BlueLineController(
-    private val method: String? = null,
+    savedStateHandle: SavedStateHandle,
     defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val methodRepository: MethodRepository = MethodRepository(),
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<BlueLineUiModel?>(null)
     val uiState = _uiState.asStateFlow()
 
+    private val args: MethodCardScreen.SingleMethodBlueLine? = savedStateHandle.toRouteOrNull()
+
     init {
-        println("Creating BlueLineController")
-        if (method == null) {
-            methodRepository.observeSelectedMethods()
-                .map { methods ->
-                    val selectedMethod = methods.firstOrNull { it.enabledForBlueline } ?: methods.firstOrNull()
-                    if (selectedMethod == null) {
-                        BlueLineEmptyModel
-                    } else {
-                        BlueLineMethodsModel(
-                            methods = methods,
-                            selectedMethod = selectedMethod,
-                        )
+        when {
+            args != null -> {
+                methodRepository.observeMethod(args.name)
+                    .map { method ->
+                        if (method == null) {
+                            SingleBlueLineModel(
+                            MethodWithCalls.fromPlaceNotation(
+                                name = args.name,
+                                placeNotation = PlaceNotation(args.placeNotation),
+                                stage = args.stage,
+                            )
+                            )
+                        } else {
+                            SingleBlueLineModel(method = method)
+                        }
                     }
-                }
-                .onEach { _uiState.value = it }
-                .launchIn(viewModelScope + defaultDispatcher)
-        } else {
-            methodRepository.observeMethod(method)
-                .map { method ->
-                    if (method == null) {
-                        BlueLineEmptyModel
-                    } else {
-                        SingleBlueLineModel(method = method)
+                    .onEach { _uiState.value = it }
+                    .launchIn(viewModelScope + defaultDispatcher)
+            }
+
+            else -> {
+                methodRepository.observeSelectedMethods()
+                    .map { methods ->
+                        val selectedMethod = methods.firstOrNull { it.enabledForBlueline } ?: methods.firstOrNull()
+                        if (selectedMethod == null) {
+                            BlueLineEmptyModel
+                        } else {
+                            BlueLineMethodsModel(
+                                methods = methods,
+                                selectedMethod = selectedMethod,
+                            )
+                        }
                     }
-                }
-                .onEach { _uiState.value = it }
-                .launchIn(viewModelScope + defaultDispatcher)
+                    .onEach { _uiState.value = it }
+                    .launchIn(viewModelScope + defaultDispatcher)
+            }
         }
     }
 
     object Factory : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
-            // This needs to match the name of the field in the nav graph
-            val methodName = extras[DEFAULT_ARGS_KEY]?.getString("methodName")
-            return BlueLineController(methodName) as T
+            return BlueLineController(extras.createSavedStateHandle()) as T
         }
     }
 }

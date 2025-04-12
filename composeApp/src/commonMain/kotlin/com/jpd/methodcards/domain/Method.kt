@@ -1,6 +1,5 @@
 package com.jpd.methodcards.domain
 
-
 data class FullMethodCall(
     val call: CallDetails,
     val ruleoffsFrom: Int,
@@ -11,7 +10,7 @@ data class FullMethodCall(
     val plainLeadEnd: Row,
 ) {
     val name: String get() = call.name
-    val callNotation: List<String> by lazy { call.notation.fullNotation.notation }
+    val callNotation: List<String> by lazy { call.notation.fullNotation(stage).notation }
     private val lead: Lead by lazy {
         val full = baseNotation
             .withCall(startIdx, call.notation)
@@ -114,6 +113,7 @@ data class MethodWithCalls(
     val enabledForMultiMethod: Boolean,
     val multiMethodFrequency: MethodFrequency,
     val enabledForBlueline: Boolean,
+    val customMethod: Boolean,
 ) {
     val underOverNotation: Pair<PlaceNotation, PlaceNotation>? by lazy {
         if (huntBells != listOf(1)) return@lazy null
@@ -151,54 +151,15 @@ data class MethodWithCalls(
         )
     }
 
-    val fullNotation by lazy { placeNotation.fullNotation }
+    val fullNotation by lazy { placeNotation.fullNotation(stage) }
 
-    val leads: List<Lead> by lazy {
-        generateMethod()
-    }
-    val leadEnd: Row by lazy {
-        leads.first().lead.last()
-    }
-    val changesInLead: Int by lazy {
-        leads.first().lead.size - 1
-    }
+    val leads: List<Lead> get() = fullNotation.leads
+    val leadEnd: Row get() = fullNotation.leadEnd
+    val changesInLead: Int get() = fullNotation.changesInLead
+    val leadEndNotation: String get() = fullNotation.leadEndNotation
 
-    val leadEndNotation: String by lazy {
-        fullNotation.notation.last()
-    }
-
-    val huntBells: List<Int> by lazy {
-        buildList {
-            leadEnd.row.forEachIndexed { idx, bell ->
-                if (bell == idx + 1) {
-                    add(idx + 1)
-                }
-            }
-        }
-    }
-
-    val leadCycles: List<List<Int>> by lazy {
-        val handled = mutableSetOf<Int>()
-        val hunts = huntBells
-        val cycles = mutableListOf<List<Int>>()
-        handled.addAll(hunts)
-        val transpose = leadEnd.row
-        1.rangeTo(stage).forEach { bell ->
-            if (bell !in handled) {
-                var b = bell
-                val cycle = mutableListOf<Int>()
-                do {
-                    cycle.add(b)
-                    b = transpose.indexOf(b) + 1
-                    require(b > 0)
-                    require(b !in handled)
-                } while (b != bell)
-                handled.addAll(cycle)
-                cycles.add(cycle)
-            }
-        }
-        cycles
-    }
+    val huntBells: List<Int> get() = fullNotation.huntBells
+    val leadCycles: List<List<Int>> get() = fullNotation.leadCycles
 
     fun callIndexes(use4thsPlaceCalls: Boolean): Map<Int, List<FullMethodCall>> {
         return if (use4thsPlaceCalls) {
@@ -238,7 +199,7 @@ data class MethodWithCalls(
         val baseNotation = fullNotation
         val indexes = mutableMapOf<Int, MutableList<FullMethodCall>>()
         calls.map { call ->
-            val notation = call.notation.fullNotation.notation
+            val notation = call.notation.fullNotation(stage).notation
             if (notation.size == 1) {
                 when (call.name) {
                     "Bob" -> call.copy(notation = PlaceNotation("14"))
@@ -272,6 +233,10 @@ data class MethodWithCalls(
     }
 
     val debugName: String get() = shortName(emptyList())
+
+    fun nameWithoutStage(): String {
+        return name.removeSuffix(" ${stageName(stage)}")
+    }
 
     fun shortName(methods: Collection<MethodWithCalls>): String {
         var final = name
@@ -321,21 +286,6 @@ data class MethodWithCalls(
             }
     }
 
-    private fun generateMethod(): List<Lead> {
-        val full = fullNotation
-
-        var row = Row.rounds(stage)
-        val leads = mutableListOf<Lead>()
-
-        do {
-            val lead = full.sequence(row).toList()
-            leads.add(Lead(lead))
-            row = lead.last()
-        } while (!row.isRounds())
-
-        return leads
-    }
-
     companion object {
         val AllowedStages = (4..16).toList()
 
@@ -354,6 +304,39 @@ data class MethodWithCalls(
             15 -> "Septuples"
             16 -> "Sixteen"
             else -> error("Invalid stage: $stage")
+        }
+
+        fun fromPlaceNotation(
+            name: String,
+            stage: Int,
+            placeNotation: PlaceNotation,
+        ): MethodWithCalls {
+            val fullNotation = placeNotation.fullNotation(stage)
+            val classification = fullNotation.classification.classification
+            val methodName = if (name.endsWith(stageName(stage))) {
+                name
+            } else {
+                buildList {
+                    add(name)
+                    if (classification.part.isNotEmpty()) {
+                        add(classification.part)
+                    }
+                    add(stageName(stage))
+                }.joinToString(" ")
+            }
+            return MethodWithCalls(
+                name = methodName,
+                placeNotation = placeNotation,
+                stage = stage,
+                ruleoffsFrom = 0,
+                ruleoffsEvery = fullNotation.changesInLead,
+                classification = classification,
+                calls = emptyList(), //TODO
+                enabledForMultiMethod = false,
+                multiMethodFrequency = MethodFrequency.Regular,
+                enabledForBlueline = false,
+                customMethod = true,
+            )
         }
     }
 }

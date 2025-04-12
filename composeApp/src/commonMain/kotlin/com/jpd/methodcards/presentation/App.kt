@@ -97,8 +97,8 @@ fun App() {
             { navController.navigate(MethodCardScreen.MultiMethodSelection) }
         val navigateToAddMethod: () -> Unit =
             { navController.navigate(MethodCardScreen.AddMethod) }
-        val navigateToBlueline: (String) -> Unit = {
-            navController.navigate(route = MethodCardScreen.SingleMethodBlueLine(it))
+        val navigateToBlueline: (MethodCardScreen.SingleMethodBlueLine) -> Unit = {
+            navController.navigate(route = it)
         }
 
         val drawerState = methodCardDrawerState()
@@ -150,6 +150,7 @@ fun App() {
                                     navBackStackEntry,
                                     { navController.navigate(MethodCardScreen.BlueLineMethodList) },
                                     navigationIcon,
+                                    { navController.navigate(it) }
                                 )
                             }
 
@@ -165,6 +166,7 @@ fun App() {
                                 OverUnderTopBar(navBackStackEntry, navigationIcon)
                             }
 
+                            d.hasRoute<MethodCardScreen.SingleMethodSimulator>() ||
                             d.hasRoute<MethodCardScreen.Simulator>() -> {
                                 SimulatorTopBar(
                                     navBackStackEntry,
@@ -210,9 +212,18 @@ fun App() {
                         )
                     }
                     composable<MethodCardScreen.OverUnder> {
-                        OverUnderScreen(modifier = Modifier.fillMaxSize())
+                        OverUnderScreen(modifier = Modifier.fillMaxSize(),
+                            navigateToBlueLine = {
+                                navController.navigate(route = it)
+                            })
                     }
                     composable<MethodCardScreen.Simulator> {
+                        SimulatorScreen(
+                            modifier = Modifier.fillMaxSize(),
+                            navigateToAppSettings = navigateToAppSettings,
+                        )
+                    }
+                    composable<MethodCardScreen.SingleMethodSimulator> {
                         SimulatorScreen(
                             modifier = Modifier.fillMaxSize(),
                             navigateToAppSettings = navigateToAppSettings,

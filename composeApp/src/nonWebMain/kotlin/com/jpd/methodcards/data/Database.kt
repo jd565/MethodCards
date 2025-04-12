@@ -5,12 +5,10 @@ import androidx.room.Database
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.Relation
-import androidx.room.RenameColumn
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
-import androidx.room.migration.AutoMigrationSpec
 import androidx.room.migration.Migration
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
@@ -22,7 +20,7 @@ import com.jpd.methodcards.domain.PlaceNotation
 
 @Database(
     entities = [MethodEntity::class, CallEntity::class, SelectionEntity::class, MethodStatisticsEntity::class],
-    version = 8,
+    version = 9,
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 @TypeConverters(PlaceNotationTypeConverter::class)
@@ -50,6 +48,7 @@ data class MethodEntity(
     val ruleoffsFrom: Int,
     val magic: Int,
     val classification: MethodClassification,
+    val customMethod: Boolean = false,
 )
 
 @Entity(primaryKeys = ["methodName", "name"])
@@ -93,6 +92,7 @@ data class MethodWithCallsEntity(
     val enabledForMultiMethod: Boolean,
     val multiMethodFrequency: MethodFrequency,
     val enabledForBlueline: Boolean,
+    val customMethod: Boolean = false,
 ) {
     fun toDomain(): MethodWithCalls = MethodWithCalls(
         name,
@@ -105,6 +105,7 @@ data class MethodWithCallsEntity(
         enabledForMultiMethod,
         multiMethodFrequency,
         enabledForBlueline,
+        customMethod,
     )
 }
 
@@ -140,22 +141,14 @@ class PlaceNotationTypeConverter {
     }
 }
 
-@RenameColumn(tableName = "SelectionEntity", fromColumnName = "name", toColumnName = "selectionName")
-@RenameColumn(tableName = "SelectionEntity", fromColumnName = "stage", toColumnName = "selectionStage")
-class AppAutoMigration : AutoMigrationSpec {
-    override fun onPostMigrate(connection: SQLiteConnection) {
-        connection.execSQL("DELETE from MethodEntity")
-    }
-}
-
-class ChangeClassification : AutoMigrationSpec {
-    override fun onPostMigrate(connection: SQLiteConnection) {
-        connection.execSQL("DELETE from MethodEntity")
-    }
-}
-
 val MIGRATION_7_8 = object : Migration(7, 8) {
     override fun migrate(connection: SQLiteConnection) {
         connection.execSQL("ALTER TABLE CallEntity DROP COLUMN cover")
+    }
+}
+
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE MethodEntity ADD customMethod INTEGER NOT NULL DEFAULT 0")
     }
 }

@@ -282,7 +282,7 @@ internal class SimulatorState private constructor(
         }
 
         val currentRow = rows.last().nextRow
-        val nextRow = currentRow.nextRow(pn)
+        val nextRow = currentRow.nextRow(pn, method.stage)
 
         if (rows.size > 100) {
             rows.removeAt(0)
@@ -321,7 +321,7 @@ internal class SimulatorState private constructor(
 
         val pn = notation[idx]
         val currentRow = Row.rounds(stage)
-        val nextRow = currentRow.nextRow(pn)
+        val nextRow = currentRow.nextRow(pn, method.stage)
 
         val (methodName, leadEndNotation) = if (methods.size != 1) methodCall(method) else null to null
         calculateCourseBells(currentRow, leadEndPlace)

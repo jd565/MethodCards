@@ -9,6 +9,6 @@ data class CallDetails(
     val every: Int,
 ) {
     val cover: Int by lazy {
-        notation.fullNotation.notation.size
+        notation.fullNotation(16).notation.size
     }
 }

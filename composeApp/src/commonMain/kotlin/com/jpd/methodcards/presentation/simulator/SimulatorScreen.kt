@@ -60,9 +60,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -74,10 +76,12 @@ import com.jpd.methodcards.domain.CallFrequency
 import com.jpd.methodcards.domain.ExtraPathType
 import com.jpd.methodcards.domain.MethodWithCalls
 import com.jpd.methodcards.domain.PersistedSimulatorState
+import com.jpd.methodcards.domain.PlaceNotation
 import com.jpd.methodcards.domain.toBellChar
 import com.jpd.methodcards.presentation.KeyDirection
 import com.jpd.methodcards.presentation.KeyEvent
 import com.jpd.methodcards.presentation.LocalKeyEvents
+import com.jpd.methodcards.presentation.MethodCardScreen
 import com.jpd.methodcards.presentation.NoMethodSelectedView
 import com.jpd.methodcards.presentation.blueline.BlueLineStroke
 import com.jpd.methodcards.presentation.blueline.TrebleLineColor
@@ -87,6 +91,7 @@ import com.jpd.methodcards.presentation.icons.South
 import com.jpd.methodcards.presentation.icons.SouthEast
 import com.jpd.methodcards.presentation.icons.SouthWest
 import com.jpd.methodcards.presentation.ui.MultiMethodTopBar
+import com.jpd.methodcards.presentation.utils.toRouteOrNull
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -96,6 +101,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.isActive
@@ -203,6 +209,7 @@ fun SimulatorTopBar(
         settingsClicked = showSimulatorBottomSheet,
         navigateToMultiMethodSelection = navigateToMultiMethodSelection,
         navigationIcon = navigationIcon,
+        enabled = (model as? SimulatorMethodsModel)?.selectionEnabled ?: false
     )
 
     if (showExplainer) {
@@ -286,7 +293,7 @@ private fun SimulatorLineAndInputs(state: SimulatorState?, seeFullStats: () -> U
                         icon = Icons.Filled.SouthEast,
                         eventCallback = eventCallback,
                         tint = blueLineColors[1],
-                        keyHint = "j",
+                        keyHint = "l",
                     )
                     DirectionArrow(
                         direction = KeyDirection.Down,
@@ -302,7 +309,7 @@ private fun SimulatorLineAndInputs(state: SimulatorState?, seeFullStats: () -> U
                         icon = Icons.Filled.SouthWest,
                         eventCallback = eventCallback,
                         tint = blueLineColors[1],
-                        keyHint = "l",
+                        keyHint = "j",
                     )
                 }
             }
@@ -700,6 +707,7 @@ private class ExtraBellPath(
 private sealed class SimulatorUiModel
 private data class SimulatorMethodsModel(
     val selectionDescription: String,
+    val selectionEnabled: Boolean,
     val state: SimulatorState,
 ) : SimulatorUiModel()
 
@@ -707,6 +715,7 @@ private data object SimulatorEmptyModel : SimulatorUiModel()
 
 @OptIn(ExperimentalCoroutinesApi::class)
 private class SimulatorController(
+    savedStateHandle: SavedStateHandle,
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val methodRepository: MethodRepository = MethodRepository(),
     methodCardsPreferences: MethodCardsPreferences = getMethodCardsPreferences(),
@@ -714,11 +723,32 @@ private class SimulatorController(
     private val _uiState = MutableStateFlow<SimulatorUiModel?>(null)
     val uiState = _uiState.asStateFlow()
 
+    private val args: MethodCardScreen.SingleMethodSimulator? = savedStateHandle.toRouteOrNull()
+
     init {
         viewModelScope.launch(defaultDispatcher) {
             val persistModel = methodRepository.getSimulatorModel()
+
+            val selectedMethodsFlow = if (args == null) {
+                methodRepository.observeSelectedMethods()
+            } else {
+                methodRepository.observeMethod(args.methodName).map { method ->
+                    val m = method
+                        ?: MethodWithCalls.fromPlaceNotation(
+                            args.methodName,
+                            args.stage,
+                            PlaceNotation(args.placeNotation),
+                        )
+                    if (m.enabledForMultiMethod) {
+                        listOf(m)
+                    } else {
+                        listOf(m.copy(enabledForMultiMethod = true))
+                    }
+                }
+            }
+
             combine(
-                methodRepository.observeSelectedMethods(),
+                selectedMethodsFlow,
                 methodCardsPreferences.observeSimulatorUse4thsPlaceCalls(),
                 methodCardsPreferences.observeSimulatorHandbellMode(),
             ) { methods, use4thsPlaceCalls, handbellMode ->
@@ -729,7 +759,7 @@ private class SimulatorController(
                         methods.filter { it.enabledForMultiMethod }.takeIf { it.isNotEmpty() } ?: methods
                     val selectedName =
                         when {
-                            selectedMethods.size == 1 -> selectedMethods.first().shortName(methods)
+                            selectedMethods.size == 1 -> selectedMethods.first().name
                             selectedMethods.size < methods.size -> "Some methods (${selectedMethods.size})"
                             methods.isNotEmpty() -> "All methods (${methods.size})"
                             else -> ""
@@ -754,6 +784,7 @@ private class SimulatorController(
 
                     SimulatorMethodsModel(
                         selectionDescription = selectedName,
+                        selectionEnabled = methods.size != 1,
                         state = simulatorState,
                     )
                 }
@@ -799,7 +830,9 @@ private class SimulatorController(
     }
 
     private fun persistModel(model: PersistedSimulatorState) {
-        methodRepository.persistSimulatorModel(model)
+        if (args == null) {
+            methodRepository.persistSimulatorModel(model)
+        }
     }
 
     private fun updateMethodStatistics(method: MethodWithCalls, lead: Int, error: Boolean) {
@@ -811,7 +844,7 @@ private class SimulatorController(
     object Factory : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
-            return SimulatorController() as T
+            return SimulatorController(extras.createSavedStateHandle()) as T
         }
     }
 }

@@ -11,7 +11,8 @@ plugins {
 project.group = "com.jpd"
 
 kotlin {
-    compilerOptions {
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
     }
 
     listOf(

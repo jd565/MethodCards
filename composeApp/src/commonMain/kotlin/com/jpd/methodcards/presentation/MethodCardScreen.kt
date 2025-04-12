@@ -1,6 +1,7 @@
 package com.jpd.methodcards.presentation
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -20,11 +21,12 @@ sealed interface MethodCardScreen {
             val entries: List<TopLevel>
                 get() = listOf(
                     BlueLine,
-                    // OverUnder,
+                    OverUnder,
                     FlashCard,
                     Simulator,
                     Compose,
                     Settings,
+                    MethodBuilder,
                 )
         }
     }
@@ -42,13 +44,21 @@ sealed interface MethodCardScreen {
     @Serializable
     data object OverUnder : TopLevel
     @Serializable
+    data object MethodBuilder : TopLevel
+    @Serializable
     data object BlueLineMethodList : MethodCardScreen
     @Serializable
     data object MultiMethodSelection : MethodCardScreen
     @Serializable
     data object AddMethod : MethodCardScreen
     @Serializable
-    data class SingleMethodBlueLine(val methodName: String) : MethodCardScreen
+    data class SingleMethodBlueLine(
+        val name: String,
+        val placeNotation: String,
+        val stage: Int,
+    ) : MethodCardScreen
+    @Serializable
+    data class SingleMethodSimulator(val methodName: String, val placeNotation: String, val stage: Int) : MethodCardScreen
 
     companion object {
         val entries: List<KClass<out MethodCardScreen>>
@@ -60,6 +70,7 @@ sealed interface MethodCardScreen {
                         MultiMethodSelection::class,
                         AddMethod::class,
                         SingleMethodBlueLine::class,
+                        SingleMethodSimulator::class,
                     ),
                 )
     }
@@ -77,14 +88,18 @@ val KClass<out MethodCardScreen>?.title: String
         MethodCardScreen.BlueLineMethodList::class -> "Select Blue Line Method"
         MethodCardScreen.MultiMethodSelection::class -> "Select Methods"
         MethodCardScreen.SingleMethodBlueLine::class -> "Blue Line"
+        MethodCardScreen.SingleMethodSimulator::class -> "Simulator"
+        MethodCardScreen.MethodBuilder::class -> "Method Builder"
         else -> "Unknown"
     }
 
-val MethodCardScreen.TopLevel.icon: ImageVector get() = when (this) {
-    MethodCardScreen.BlueLine -> Icons.Filled.Blueline
-    MethodCardScreen.Compose -> Icons.Filled.Build
-    MethodCardScreen.FlashCard -> Icons.Filled.Flashcard
-    MethodCardScreen.OverUnder -> Icons.Filled.ShoppingCart
-    MethodCardScreen.Settings -> Icons.Filled.Settings
-    MethodCardScreen.Simulator -> Icons.Filled.Simulator
-}
+val MethodCardScreen.TopLevel.icon: ImageVector
+    get() = when (this) {
+        MethodCardScreen.BlueLine -> Icons.Filled.Blueline
+        MethodCardScreen.Compose -> Icons.Filled.Build
+        MethodCardScreen.FlashCard -> Icons.Filled.Flashcard
+        MethodCardScreen.OverUnder -> Icons.Filled.ShoppingCart
+        MethodCardScreen.Settings -> Icons.Filled.Settings
+        MethodCardScreen.Simulator -> Icons.Filled.Simulator
+        MethodCardScreen.MethodBuilder -> Icons.Filled.AddCircle
+    }

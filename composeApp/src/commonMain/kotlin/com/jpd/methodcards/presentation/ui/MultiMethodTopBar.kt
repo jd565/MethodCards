@@ -28,6 +28,7 @@ fun MultiMethodTopBar(
     settingsClicked: () -> Unit,
     navigateToMultiMethodSelection: () -> Unit,
     navigationIcon: @Composable () -> Unit,
+    enabled: Boolean = true,
 ) {
     TopAppBar(
         navigationIcon = navigationIcon,
@@ -35,13 +36,15 @@ fun MultiMethodTopBar(
             if (description != null) {
                 Row(
                     modifier = Modifier.heightIn(48.dp)
-                        .clickable(onClick = navigateToMultiMethodSelection),
+                        .clickable(onClick = navigateToMultiMethodSelection, enabled = enabled),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
                 ) {
                     Text(description)
-                    Spacer(Modifier.width(8.dp))
-                    Icon(Icons.AutoMirrored.Default.KeyboardArrowRight, contentDescription = "Method Selection")
+                    if (enabled) {
+                        Spacer(Modifier.width(8.dp))
+                        Icon(Icons.AutoMirrored.Default.KeyboardArrowRight, contentDescription = "Method Selection")
+                    }
                 }
             }
         },

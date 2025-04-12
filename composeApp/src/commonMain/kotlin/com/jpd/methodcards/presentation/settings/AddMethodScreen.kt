@@ -11,17 +11,25 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -35,6 +43,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jpd.methodcards.data.MethodCardsPreferences
 import com.jpd.methodcards.data.MethodRepository
 import com.jpd.methodcards.di.MethodCardDi.getMethodCardsPreferences
+import com.jpd.methodcards.domain.CallDetails
 import com.jpd.methodcards.domain.MethodClassification
 import com.jpd.methodcards.domain.MethodFrequency
 import com.jpd.methodcards.domain.MethodWithCalls
@@ -70,23 +79,21 @@ fun AddMethodScreen(modifier: Modifier) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddMethodView(
+private fun AddMethodView(
     model: AddMethodUiModel,
     modifier: Modifier = Modifier,
     stageUpdated: (Int) -> Unit,
     nameUpdated: (String) -> Unit,
     placeNotationUpdated: (String) -> Unit,
-    addMethodClicked: (
-        stage: Int, name: String, classification: MethodClassification, placeNotation: String, ruleoffsEvery: Int, ruleoffsFrom: Int,
-    ) -> Unit,
+    addMethodClicked: (NewMethodDetails) -> Unit,
 ) {
     Column(modifier = modifier.padding(horizontal = 20.dp).verticalScroll(rememberScrollState())) {
         var name by remember { mutableStateOf("") }
         var placeNotation by remember { mutableStateOf("") }
         var stage by remember { mutableStateOf(model.stage) }
         var classificationState by remember { mutableStateOf(MethodClassification.None) }
-        var ruleoffsEvery by remember { mutableStateOf(0) }
-        var ruleoffsFrom by remember { mutableStateOf(0) }
+        var ruleoffsEvery by remember { mutableStateOf("0") }
+        var ruleoffsFrom by remember { mutableStateOf("0") }
 
         var stageExpanded by remember { mutableStateOf(false) }
         ExposedDropdownMenuBox(expanded = stageExpanded, onExpandedChange = { stageExpanded = it }) {
@@ -173,30 +180,111 @@ fun AddMethodView(
         Spacer(Modifier.height(4.dp))
         Row {
             OutlinedTextField(
-                ruleoffsEvery.toString(),
-                { it.toIntOrNull()?.let { ruleoffsEvery = it } },
-                label = { Text("Ruleoffs Every") },
+                ruleoffsFrom,
+                { ruleoffsFrom = it },
+                label = { Text("Ruleoffs From") },
+                isError = ruleoffsFrom.toIntOrNull() == null,
                 modifier = Modifier.weight(1f),
             )
             Spacer(Modifier.width(8.dp))
             OutlinedTextField(
-                ruleoffsFrom.toString(),
-                { it.toIntOrNull()?.let { ruleoffsFrom = it } },
-                label = { Text("Ruleoffs From") },
+                ruleoffsEvery,
+                { ruleoffsEvery = it },
+                label = { Text("Ruleoffs Every (leave as 0 for length of lead)") },
+                isError = ruleoffsEvery.toIntOrNull() == null,
                 modifier = Modifier.weight(1f),
             )
         }
         Spacer(Modifier.height(4.dp))
+        val calls = remember {
+            mutableStateListOf(
+                AddCallInfo(
+                    name = mutableStateOf("Bob"),
+                    symbol = mutableStateOf("-"),
+                    notation = mutableStateOf("14"),
+                ),
+                AddCallInfo(
+                    name = mutableStateOf("Single"),
+                    symbol = mutableStateOf("s"),
+                    notation = mutableStateOf("1234"),
+                ),
+            )
+        }
+        Row {
+            Text("Calls")
+            Spacer(Modifier.width(4.dp))
+            IconButton(
+                onClick = { calls.add(AddCallInfo()) },
+            ) {
+                Icon(Icons.Default.Add, "Add call")
+            }
+        }
+        calls.forEachIndexed { idx, call ->
+            Row {
+                listOf(
+                    call.name to "Name",
+                    call.symbol to "Symbol",
+                    call.notation to "Notation",
+                ).forEach { (field, text) ->
+                    OutlinedTextField(
+                        field.value,
+                        { field.value = it },
+                        label = { Text(text) },
+                        isError = field.value.isBlank(),
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(2.dp))
+                }
+                listOf(
+                    call.from to "From",
+                    call.every to "Every (0 is lead length)",
+                ).forEach { (field, text) ->
+                    OutlinedTextField(
+                        field.value,
+                        { field.value = it },
+                        label = { Text(text) },
+                        isError = field.value.toIntOrNull() == null,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(2.dp))
+                }
+                IconButton(
+                    onClick = { calls.removeAt(idx) },
+                ) {
+                    Icon(Icons.Default.Delete, "Remove call")
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
 
         Button(
             onClick = {
-                addMethodClicked(stage, name, classificationState, placeNotation, ruleoffsEvery, ruleoffsFrom)
+                addMethodClicked(NewMethodDetails(name, stage, classificationState, placeNotation, ruleoffsEvery, ruleoffsFrom, calls))
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = model.nameError == null && model.placeNotationError == null,
+            enabled = model.nameError == null &&
+                model.placeNotationError == null &&
+                ruleoffsEvery.toIntOrNull() != null &&
+                ruleoffsFrom.toIntOrNull() != null &&
+                calls.all { it.isValid() },
         ) {
-            Text("Add Method")
+            Text("Save")
         }
+    }
+}
+
+@Stable
+private class AddCallInfo(
+    val name: MutableState<String> = mutableStateOf(""),
+    val symbol: MutableState<String> = mutableStateOf(""),
+    val notation: MutableState<String> = mutableStateOf(""),
+    val from: MutableState<String> = mutableStateOf("0"),
+    val every: MutableState<String> = mutableStateOf("0"),
+) {
+    fun isValid(): Boolean {
+        return name.value.isNotBlank() && symbol.value.isNotBlank() && notation.value.isNotBlank() &&
+            from.value.toIntOrNull() != null && every.value.toIntOrNull() != null
     }
 }
 
@@ -206,13 +294,23 @@ private val MethodClassification.display: String
         else -> this.part
     }
 
-data class AddMethodUiModel(
+private data class AddMethodUiModel(
     val stage: Int,
     val nameError: String?,
     val placeNotationError: String?,
 )
 
-class AddMethodController(
+private data class NewMethodDetails(
+    val name: String,
+    val stage: Int,
+    val classification: MethodClassification,
+    val placeNotation: String,
+    val ruleoffsEvery: String,
+    val ruleoffsFrom: String,
+    val calls: List<AddCallInfo>,
+)
+
+private class AddMethodController(
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val methodRepository: MethodRepository = MethodRepository(),
     private val preferences: MethodCardsPreferences = getMethodCardsPreferences(),
@@ -268,7 +366,7 @@ class AddMethodController(
         } catch (e: Exception) {
             return "Invalid place notation"
         }
-        methodRepository.searchByPlaceNotations(listOf(pn)).firstOrNull()?.let { existing ->
+        methodRepository.searchByPlaceNotation(pn)?.let { existing ->
             if (existing.stage == stage)
                 return "Method with notation already exists (${existing.name})"
         }
@@ -288,25 +386,36 @@ class AddMethodController(
     }
 
     fun addMethod(
-        stage: Int,
-        name: String,
-        classification: MethodClassification,
-        placeNotation: String,
-        ruleoffsEvery: Int,
-        ruleoffsFrom: Int,
+        details: NewMethodDetails,
     ) {
         viewModelScope.launch {
+            val lengthOfLead = PlaceNotation(details.placeNotation)
+                .fullNotation(details.stage)
+                .notation
+                .size
+            val ruleoffsEvery = details.ruleoffsEvery.toIntOrNull()?.takeIf { it > 0 } ?: lengthOfLead
             val method = MethodWithCalls(
-                name,
-                PlaceNotation(placeNotation),
-                stage,
-                ruleoffsEvery,
-                ruleoffsFrom,
-                classification,
-                emptyList(),
-                false,
-                MethodFrequency.Regular,
-                false,
+                name = details.name,
+                placeNotation = PlaceNotation(details.placeNotation),
+                stage = details.stage,
+                ruleoffsEvery = ruleoffsEvery,
+                ruleoffsFrom = details.ruleoffsFrom.toIntOrNull() ?: 0,
+                classification = details.classification,
+                calls = details.calls.map { call ->
+                    val every = call.every.value.toIntOrNull()?.takeIf { it > 0 } ?: lengthOfLead
+                    CallDetails(
+                        methodName = details.name,
+                        name = call.name.value,
+                        symbol = call.symbol.value,
+                        notation = PlaceNotation(call.notation.value),
+                        from = call.from.value.toIntOrNull() ?: 0,
+                        every = every,
+                    )
+                },
+                enabledForMultiMethod = false,
+                multiMethodFrequency = MethodFrequency.Regular,
+                enabledForBlueline = false,
+                customMethod = true,
             )
             methodRepository.addMethod(method)
         }

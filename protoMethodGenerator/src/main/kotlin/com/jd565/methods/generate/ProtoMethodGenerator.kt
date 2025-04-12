@@ -85,7 +85,7 @@ sealed class CallDetails {
 private fun XmlMethod.getCalls(properties: XmlMethodSetProperties): CallDetails? {
     val stage = (stage?.value ?: properties.stage?.value)?.toIntOrNull() ?: return null
     val notation = notation?.value ?: return null
-    val pn = PlaceNotation(notation).fullNotation
+    val pn = PlaceNotation(notation).fullNotation(stage)
 
     val classification = (classification ?: properties.classification) ?: return null
     val isDifferential = classification.differential ?: false
