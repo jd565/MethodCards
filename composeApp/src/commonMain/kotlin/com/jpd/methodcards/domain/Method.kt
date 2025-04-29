@@ -254,7 +254,8 @@ data class MethodWithCalls(
     }
 
     val leadEndOptions: List<LeadWithCalls> by lazy {
-        callIndexes.entries.sortedBy { it.key }
+        callIndexes.entries.sortedBy { it.key }.map { Pair(it.key, it.value) }
+            .ifEmpty { listOf(Pair(changesInLead, emptyList())) }
             .fold(listOf<List<Pair<Int, FullMethodCall?>>>()) { options, (idx, calls) ->
                 if (options.isEmpty()) {
                     buildList {
@@ -331,7 +332,16 @@ data class MethodWithCalls(
                 ruleoffsFrom = 0,
                 ruleoffsEvery = fullNotation.changesInLead,
                 classification = classification,
-                calls = emptyList(), //TODO
+                calls = fullNotation.getCalls().map {
+                    CallDetails(
+                        methodName,
+                        it.name,
+                        it.symbol,
+                        PlaceNotation(it.notation),
+                        it.from,
+                        it.every(fullNotation.changesInLead),
+                    )
+                },
                 enabledForMultiMethod = false,
                 multiMethodFrequency = MethodFrequency.Regular,
                 enabledForBlueline = false,

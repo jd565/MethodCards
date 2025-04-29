@@ -19,6 +19,8 @@ import com.jpd.methodcards.data.SimulatorPersistence
 import com.jpd.methodcards.data.library.MethodLibrary
 import com.jpd.methodcards.data.library.MethodLibraryVersion
 import com.jpd.methodcards.domain.PersistedSimulatorState
+import com.jpd.methodcards.presentation.hearing.AudioPlayer
+import com.jpd.methodcards.presentation.listener.AudioRecorder
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -29,18 +31,17 @@ expect object MethodCardNonWebDi {
     val dataStore: DataStore<Preferences>
     val simulatorDataStore: DataStore<PersistedSimulatorState>
     val databaseBuilder: RoomDatabase.Builder<AppDatabase>
+    fun getAudioRecorder(): AudioRecorder
+    fun getAudioPlayer(): AudioPlayer
 }
 
 actual object MethodCardDi {
-    actual fun getMethodCardsPreferences(): MethodCardsPreferences {
-        return MethodCardsDataStorePreferences()
-    }
-    actual fun getMethodDao(): MethodDao {
-        return RoomMethodDao(database.getMethodDao())
-    }
-    actual fun getSimulatorPersistence(): SimulatorPersistence {
-        return SimulatorDataStorePersistence(MethodCardNonWebDi.simulatorDataStore)
-    }
+    actual fun getMethodCardsPreferences(): MethodCardsPreferences = MethodCardsDataStorePreferences()
+    actual fun getMethodDao(): MethodDao = RoomMethodDao(database.getMethodDao())
+    actual fun getSimulatorPersistence(): SimulatorPersistence =
+        SimulatorDataStorePersistence(MethodCardNonWebDi.simulatorDataStore)
+    actual fun getAudioRecorder(): AudioRecorder = MethodCardNonWebDi.getAudioRecorder()
+    actual fun getAudioPlayer(): AudioPlayer = MethodCardNonWebDi.getAudioPlayer()
 }
 
 private val persistedMethodLibraryVersionKey = intPreferencesKey("method_library_version")

@@ -11,6 +11,10 @@ import androidx.room.RoomDatabase
 import com.jpd.methodcards.data.AppDatabase
 import com.jpd.methodcards.data.SimulatorDataStoreSerializer
 import com.jpd.methodcards.domain.PersistedSimulatorState
+import com.jpd.methodcards.presentation.hearing.AudioPlayer
+import com.jpd.methodcards.presentation.hearing.JvmAudioPlayer
+import com.jpd.methodcards.presentation.listener.AudioRecorder
+import com.jpd.methodcards.presentation.listener.AudioRecorderImpl
 import okio.FileSystem
 import okio.Path.Companion.toOkioPath
 import okio.Path.Companion.toPath
@@ -44,4 +48,7 @@ actual object MethodCardNonWebDi {
             name = dbFile.absolutePath,
         )
     }
+
+    actual fun getAudioRecorder(): AudioRecorder = AudioRecorderImpl()
+    actual fun getAudioPlayer(): AudioPlayer = JvmAudioPlayer()
 }

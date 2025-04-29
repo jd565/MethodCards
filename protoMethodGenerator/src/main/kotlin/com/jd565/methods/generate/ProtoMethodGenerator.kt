@@ -2,6 +2,7 @@ package com.jd565.methods.generate
 
 import com.jpd.MethodProto
 import com.jpd.methodcards.domain.PlaceNotation
+import com.jpd.methodcards.domain.getCalls
 import com.jpd.methodcards.domain.stageName
 import com.jpd.methodcards.domain.toBellChar
 
@@ -89,58 +90,42 @@ private fun XmlMethod.getCalls(properties: XmlMethodSetProperties): CallDetails?
 
     val classification = (classification ?: properties.classification) ?: return null
     val isDifferential = classification.differential ?: false
+    val leadHeadCode = leadHeadCode?.value ?: properties.leadHeadCode?.value
+    val numberOfHunts = (numberOfHunts?.value ?: properties.numberOfHunts?.value)?.toIntOrNull() ?: return null
 
-    if (!isDifferential && stage > 4) {
+    val calls = pn.getCalls(isDifferential, leadHeadCode, numberOfHunts)
+
+    return if (calls.size == 2 && calls[0].name == "Bob" && calls[1].name == "Single" &&
+        calls[0].everyCompressed == calls[1].everyCompressed &&
+        calls[0].from == calls[1].from) {
         val le = pn.notation.last()
-        val postLe = pn.notation.first()
-        val leadHeadCode = leadHeadCode?.value ?: properties.leadHeadCode?.value
         val n = stage.toBellChar()
-        val numberOfHunts = (numberOfHunts?.value ?: properties.numberOfHunts?.value)?.toIntOrNull() ?: return null
-        when (numberOfHunts) {
-            0 -> {
-                if (stage % 2 == 0) {
-                    if (le == "1$n") {
-                        return CallDetails.Standard
-                    }
-                }
-            }
-
-            1 -> {
-                if (stage % 2 == 0) {
-                    if (le == "12") {
-                        return CallDetails.Standard
-                    } else if (le == "1$n") {
-                        return if (leadHeadCode == "m" && stage > 6) {
-                            CallDetails.BobAndSingle("14", "1234")
-                        } else {
-                            CallDetails.Standard
-                        }
-                    } else if (le == "14" && stage == 6) {
-                        return CallDetails.BobAndSingle("16", "156")
-                    }
-                } else {
-                    if (le == "12$n" || le == "1") {
-                        return CallDetails.BobAndSingle("14$n", if (stage < 6) "123" else "1234$n")
-                    } else if (le == "123") {
-                        return CallDetails.BobAndSingle("12$n", null)
-                    }
-                }
-            }
-
-            2 -> {
-                if (stage % 2 == 0) {
-                    if (le == "1$n" && postLe == "3$n") {
-                        return CallDetails.BobAndSingle("3$n.1$n", "3$n.123$n", from = -1)
-                    }
-                } else {
-                    if (le == "1" && (postLe == "3" || postLe == n)) {
-                        return CallDetails.BobAndSingle("3.1", "3.123", from = -1)
-                    }
-                }
-            }
+        val nm1 = (stage - 1).toBellChar()
+        val nm2 = (stage - 2).toBellChar()
+        if (le == "12" && calls[0].notation == "14" && calls[1].notation == "1234") {
+            CallDetails.Standard
+        } else if (le == "1$n" && calls[0].notation == "1$nm2" && calls[1].notation == "1$nm2$nm1$n") {
+            CallDetails.Standard
+        } else {
+            CallDetails.BobAndSingle(
+                bob = calls[0].notation,
+                single = calls[1].notation,
+                every = calls[0].everyCompressed,
+                from = calls[0].from,
+            )
         }
+    } else if (calls.size == 1 && calls[0].name == "Bob") {
+        CallDetails.BobAndSingle(
+            bob = calls[0].notation,
+            single = null,
+            every = calls[0].everyCompressed,
+            from = calls[0].from,
+        )
+    } else if (calls.isNotEmpty()) {
+        CallDetails.Custom(calls)
+    } else {
+        null
     }
-    return null
 }
 
 private fun XmlMethod.magic(magicOffset: Int, sortOrder: List<String>): Int {

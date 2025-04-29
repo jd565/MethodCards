@@ -49,8 +49,25 @@ private val KeyboardEvent.keyDirection: KeyDirection? get() = when (key) {
     "ArrowLeft", "j", "J" -> KeyDirection.Left
     "ArrowDown", "k", "K" -> KeyDirection.Down
     "ArrowRight", "l", "L" -> KeyDirection.Right
+    "ArrowUp" -> KeyDirection.Up
     "a", "A" -> KeyDirection.A
     "s", "S" -> KeyDirection.S
     "d", "D" -> KeyDirection.D
+    "1" -> KeyDirection.Bell("1")
+    "2" -> KeyDirection.Bell("2")
+    "3" -> KeyDirection.Bell("3")
+    "4" -> KeyDirection.Bell("4")
+    "5" -> KeyDirection.Bell("5")
+    "6" -> KeyDirection.Bell("6")
+    "7" -> KeyDirection.Bell("7")
+    "8" -> KeyDirection.Bell("8")
+    "9" -> KeyDirection.Bell("9")
+    "0" -> KeyDirection.Bell("0")
+    "E", "e" -> KeyDirection.Bell("E")
+    "T", "t" -> KeyDirection.Bell("T")
+    "B", "b" -> KeyDirection.Bell("B")
+    "C", "c" -> KeyDirection.Bell("C")
+    "Undo" -> KeyDirection.Undo
+    "Delete", "Backspace", "Clear" -> KeyDirection.Delete
     else -> null
 }

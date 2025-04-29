@@ -96,7 +96,7 @@ value class Row(
     }
 }
 
-private fun Char.toBellDigit(): Int = when (this) {
+fun Char.toBellDigit(): Int = when (this) {
     '1' -> 1
     '2' -> 2
     '3' -> 3

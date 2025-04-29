@@ -597,6 +597,7 @@ private fun createKeyEventCallback(
                         KeyDirection.Down -> bell2 = 0
                         KeyDirection.Left -> bell2 = -1
                         KeyDirection.Right -> bell2 = 1
+                        else -> Unit
                     }
                 }
                 if (bell1 != null && bell2 != null) {
@@ -612,6 +613,7 @@ private fun createKeyEventCallback(
                     KeyDirection.Down, KeyDirection.S -> keyState()?.move(0, null)
                     KeyDirection.Left, KeyDirection.A -> keyState()?.move(-1, null)
                     KeyDirection.Right, KeyDirection.D -> keyState()?.move(1, null)
+                    else -> Unit
                 }
             }
             true

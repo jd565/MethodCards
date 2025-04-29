@@ -1,5 +1,6 @@
 package com.jpd.methodcards.domain
 
+import com.jpd.MethodProto
 import kotlin.jvm.JvmInline
 
 @JvmInline
@@ -285,7 +286,8 @@ private fun FullNotation.classifyMethodForHunt(huntBell: Int): MethodClassDescri
     // f) The Method does not use Jump Changes.
     val isTdA = pathPositionCounts.all { it.value > 2 }
     val huntRingsSameNumberOfTimesInPlace = pathPositionCounts.values.toSet().size == 1
-    val numberOfHuntBellPlaces = huntBellPositions.plus(huntBellPositions[0]).zipWithNext().count { it.first == it.second }
+    val numberOfHuntBellPlaces =
+        huntBellPositions.plus(huntBellPositions[0]).zipWithNext().count { it.first == it.second }
     val isTdC = numberOfHuntBellPlaces == 2
     val reversedPathsSequence = sequence {
         var reversed = huntBellPositions.asReversed().toMutableList()
@@ -358,4 +360,103 @@ private fun FullNotation.classifyMethodForHunt(huntBell: Int): MethodClassDescri
 
 private fun String.isInternalPlace(stage: Int): Boolean {
     return this != "1${stage.toBellChar()}"
+}
+
+fun FullNotation.getCalls(
+    isDifferential: Boolean = classification.differential,
+    leadHeadCode: String? = null,
+    numberOfHunts: Int = huntBells.size,
+): List<MethodProto.CallProto> {
+    if (!isDifferential && stage > 4) {
+        val le = notation.last()
+        val postLe = notation.first()
+        val n = stage.toBellChar()
+        val nm1 = (stage - 1).toBellChar()
+        val nm2 = (stage - 2).toBellChar()
+        when (numberOfHunts) {
+            0 -> {
+                if (stage % 2 == 0) {
+                    if (le == "1$n") {
+                        return bobAndSingleCalls("1$nm2", "1$nm2$nm1$n")
+                    }
+                }
+            }
+
+            1 -> {
+                if (stage % 2 == 0) {
+                    if (le == "12") {
+                        return bobAndSingleCalls("14", "1234")
+                    } else if (le == "1$n") {
+                        return if (leadHeadCode == "m" && stage > 6) {
+                            bobAndSingleCalls("14", "1234")
+                        } else {
+                            bobAndSingleCalls("1$nm2", "1$nm2$nm1$n")
+                        }
+                    } else if (le == "14" && stage == 6) {
+                        return bobAndSingleCalls("16", "156")
+                    }
+                } else {
+                    if (le == "12$n" || le == "1") {
+                        return bobAndSingleCalls("14$n", if (stage < 6) "123" else "1234$n")
+                    } else if (le == "123") {
+                        return bobAndSingleCalls("12$n", null)
+                    }
+                }
+            }
+
+            2 -> {
+                if (stage % 2 == 0) {
+                    if (le == "1$n" && postLe == "3$n") {
+                        return bobAndSingleCalls("3$n.1$n", "3$n.123$n", from = -1)
+                    }
+                } else {
+                    if (le == "1" && (postLe == "3" || postLe == n)) {
+                        return bobAndSingleCalls("3.1", "3.123", from = -1)
+                    }
+                }
+            }
+        }
+    }
+    return emptyList()
+}
+
+private fun bobAndSingleCalls(
+    bob: String, single: String?,
+    from: Int = 0
+): List<MethodProto.CallProto> = listOfNotNull(
+    MethodProto.CallProto(
+        name = "Bob",
+        symbol = "-",
+        notation = bob,
+        from = from,
+    ),
+    single?.let {
+        MethodProto.CallProto(
+            name = "Single",
+            symbol = "s",
+            notation = single,
+            from = from,
+        )
+    },
+)
+
+fun PlaceNotation.validationErrorOrNull(stage: Int): String? {
+    val lastParity = stage % 2
+    return sequences.flatMap { notations ->
+        notations.filter { notation ->
+            val isValid = if (notation == "x") {
+                true
+            } else {
+                runCatching {
+                    val digits = notation.map { it.toBellDigit() }
+                    val first = digits.first()
+                    val last = digits.last()
+
+                    first % 2 == 1 && last % 2 == lastParity
+                }.getOrDefault(false)
+            }
+            !isValid
+        }
+    }.joinToString(separator = "\n") { "$it is not valid place notation" }
+        .takeIf { it.isNotEmpty() }
 }

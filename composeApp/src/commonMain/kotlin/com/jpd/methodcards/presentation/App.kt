@@ -67,6 +67,9 @@ import com.jpd.methodcards.presentation.blueline.blueLineColors
 import com.jpd.methodcards.presentation.composer.CompositionScreen
 import com.jpd.methodcards.presentation.flashcard.FlashCardScreen
 import com.jpd.methodcards.presentation.flashcard.FlashCardTopBar
+import com.jpd.methodcards.presentation.hearing.HearingTrainerScreen
+import com.jpd.methodcards.presentation.listener.AudioFFTScreen
+import com.jpd.methodcards.presentation.methodbuilder.MethodBuilderScreen
 import com.jpd.methodcards.presentation.overunder.OverUnderScreen
 import com.jpd.methodcards.presentation.overunder.OverUnderTopBar
 import com.jpd.methodcards.presentation.settings.AddMethodScreen
@@ -150,7 +153,7 @@ fun App() {
                                     navBackStackEntry,
                                     { navController.navigate(MethodCardScreen.BlueLineMethodList) },
                                     navigationIcon,
-                                    { navController.navigate(it) }
+                                    { navController.navigate(it) },
                                 )
                             }
 
@@ -167,7 +170,7 @@ fun App() {
                             }
 
                             d.hasRoute<MethodCardScreen.SingleMethodSimulator>() ||
-                            d.hasRoute<MethodCardScreen.Simulator>() -> {
+                                d.hasRoute<MethodCardScreen.Simulator>() -> {
                                 SimulatorTopBar(
                                     navBackStackEntry,
                                     navigateToMultiMethodSelection,
@@ -212,10 +215,12 @@ fun App() {
                         )
                     }
                     composable<MethodCardScreen.OverUnder> {
-                        OverUnderScreen(modifier = Modifier.fillMaxSize(),
+                        OverUnderScreen(
+                            modifier = Modifier.fillMaxSize(),
                             navigateToBlueLine = {
                                 navController.navigate(route = it)
-                            })
+                            },
+                        )
                     }
                     composable<MethodCardScreen.Simulator> {
                         SimulatorScreen(
@@ -267,6 +272,15 @@ fun App() {
                     }
                     composable<MethodCardScreen.Compose> {
                         CompositionScreen(modifier = Modifier.fillMaxSize())
+                    }
+                    composable<MethodCardScreen.MethodBuilder> {
+                        MethodBuilderScreen(modifier = Modifier.fillMaxSize())
+                    }
+                    composable<MethodCardScreen.RingingListener> {
+                        AudioFFTScreen(modifier = Modifier.fillMaxSize())
+                    }
+                    composable<MethodCardScreen.HearingTrainer> {
+                        HearingTrainerScreen(modifier = Modifier.fillMaxSize())
                     }
                 }
             }
@@ -412,8 +426,17 @@ internal val LocalKeyEvents = staticCompositionLocalOf {
     mutableListOf<(KeyDirection, KeyEvent) -> Boolean>()
 }
 
-enum class KeyDirection {
-    Left, Down, Right, A, S, D
+sealed class KeyDirection {
+    data object Left : KeyDirection()
+    data object Down : KeyDirection()
+    data object Right : KeyDirection()
+    data object Up : KeyDirection()
+    data object A : KeyDirection()
+    data object S : KeyDirection()
+    data object D : KeyDirection()
+    data class Bell(val bellChar: String) : KeyDirection()
+    data object Undo : KeyDirection()
+    data object Delete : KeyDirection()
 }
 
 enum class KeyEvent {

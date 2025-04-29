@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -48,6 +49,7 @@ import com.jpd.methodcards.domain.MethodClassification
 import com.jpd.methodcards.domain.MethodFrequency
 import com.jpd.methodcards.domain.MethodWithCalls
 import com.jpd.methodcards.domain.PlaceNotation
+import com.jpd.methodcards.domain.validationErrorOrNull
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -72,6 +74,13 @@ fun AddMethodScreen(modifier: Modifier) {
             placeNotationUpdated = remember(controller) { controller::placeNotationUpdated },
             addMethodClicked = remember(controller) { controller::addMethod },
         )
+        if (model.dialogError != null) {
+            Dialog(
+                onDismissRequest = remember(controller) { controller::clearError },
+            ) {
+                Text(model.dialogError)
+            }
+        }
     } else {
         Box(modifier)
     }
@@ -298,6 +307,7 @@ private data class AddMethodUiModel(
     val stage: Int,
     val nameError: String?,
     val placeNotationError: String?,
+    val dialogError: String?,
 )
 
 private data class NewMethodDetails(
@@ -321,6 +331,7 @@ private class AddMethodController(
     private val stageFlow = MutableStateFlow(-1)
     private val nameFlow = MutableStateFlow("")
     private val placeNotation = MutableStateFlow("")
+    private val errorFlow = MutableStateFlow<String?>(null)
 
     init {
         viewModelScope.launch(defaultDispatcher) {
@@ -334,8 +345,8 @@ private class AddMethodController(
                 getPlaceNotationError(placeNotation, stage)
             }
 
-            combine(stageFlow, nameError, placeNotationError) { a, b, c ->
-                AddMethodUiModel(a, b, c)
+            combine(stageFlow, nameError, placeNotationError, errorFlow) { a, b, c, d ->
+                AddMethodUiModel(a, b, c, d)
             }.collect {
                 _uiState.value = it
             }
@@ -361,9 +372,14 @@ private class AddMethodController(
         }
 
         val pn = PlaceNotation(placeNotation)
+        val validationError = pn.validationErrorOrNull(stage)
+        if (validationError != null) {
+            return validationError
+        }
+
         try {
             pn.asString()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return "Invalid place notation"
         }
         methodRepository.searchByPlaceNotation(pn)?.let { existing ->
@@ -385,18 +401,34 @@ private class AddMethodController(
         placeNotation.value = pn
     }
 
+    fun clearError() {
+        errorFlow.value = null
+    }
+
     fun addMethod(
         details: NewMethodDetails,
     ) {
         viewModelScope.launch {
-            val lengthOfLead = PlaceNotation(details.placeNotation)
+            val notation = PlaceNotation(details.placeNotation)
+            val pnError = notation.validationErrorOrNull(details.stage)
+            val callsError = details.calls.mapNotNull { call ->
+                PlaceNotation(call.notation.value).validationErrorOrNull(details.stage)
+                    ?.let { "${call.name.value}: $it" }
+            }.joinToString("\n").takeIf { it.isNotEmpty() }
+
+            if (pnError != null || callsError != null) {
+                errorFlow.value = listOfNotNull(pnError, callsError).joinToString("\n")
+                return@launch
+            }
+
+            val lengthOfLead = notation
                 .fullNotation(details.stage)
                 .notation
                 .size
             val ruleoffsEvery = details.ruleoffsEvery.toIntOrNull()?.takeIf { it > 0 } ?: lengthOfLead
             val method = MethodWithCalls(
                 name = details.name,
-                placeNotation = PlaceNotation(details.placeNotation),
+                placeNotation = notation,
                 stage = details.stage,
                 ruleoffsEvery = ruleoffsEvery,
                 ruleoffsFrom = details.ruleoffsFrom.toIntOrNull() ?: 0,

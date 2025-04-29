@@ -9,6 +9,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.jpd.methodcards.presentation.icons.Blueline
 import com.jpd.methodcards.presentation.icons.Flashcard
+import com.jpd.methodcards.presentation.icons.Hearing
 import com.jpd.methodcards.presentation.icons.Simulator
 import kotlinx.serialization.Serializable
 import kotlin.reflect.KClass
@@ -27,6 +28,8 @@ sealed interface MethodCardScreen {
                     Compose,
                     Settings,
                     MethodBuilder,
+                    // RingingListener,
+                    HearingTrainer,
                 )
         }
     }
@@ -45,6 +48,10 @@ sealed interface MethodCardScreen {
     data object OverUnder : TopLevel
     @Serializable
     data object MethodBuilder : TopLevel
+    @Serializable
+    data object RingingListener : TopLevel
+    @Serializable
+    data object HearingTrainer : TopLevel
     @Serializable
     data object BlueLineMethodList : MethodCardScreen
     @Serializable
@@ -90,6 +97,8 @@ val KClass<out MethodCardScreen>?.title: String
         MethodCardScreen.SingleMethodBlueLine::class -> "Blue Line"
         MethodCardScreen.SingleMethodSimulator::class -> "Simulator"
         MethodCardScreen.MethodBuilder::class -> "Method Builder"
+        MethodCardScreen.RingingListener::class -> "Ringing Listener"
+        MethodCardScreen.HearingTrainer::class -> "Hearing Trainer"
         else -> "Unknown"
     }
 
@@ -102,4 +111,6 @@ val MethodCardScreen.TopLevel.icon: ImageVector
         MethodCardScreen.Settings -> Icons.Filled.Settings
         MethodCardScreen.Simulator -> Icons.Filled.Simulator
         MethodCardScreen.MethodBuilder -> Icons.Filled.AddCircle
+        MethodCardScreen.RingingListener -> Icons.Filled.Hearing
+        MethodCardScreen.HearingTrainer -> Icons.Filled.Hearing
     }
