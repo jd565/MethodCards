@@ -79,8 +79,8 @@ data class MethodProto(
         } else if (bobAndSingleCalls != null) {
             val every = bobAndSingleCalls.every(lengthOfLead)
             listOfNotNull(
-                bobAndSingleCalls.bobNotation?.let { CallProto("Bob", "-", it, 0, every) },
-                bobAndSingleCalls.singleNotation?.let { CallProto("Single", "s", it, 0, every) },
+                bobAndSingleCalls.bobNotation?.let { CallProto("Bob", "-", it, bobAndSingleCalls.from, every) },
+                bobAndSingleCalls.singleNotation?.let { CallProto("Single", "s", it, bobAndSingleCalls.from, every) },
             )
         } else {
             customCalls

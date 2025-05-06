@@ -28,6 +28,7 @@ internal data class RowInformation(
     val nextPlaceIndex: Int,
     val nextPlace2Index: Int,
     val isLeadEnd: Boolean,
+    val methodName: String?,
     val call: String?,
     val leadEndNotation: String?,
 ) {
@@ -36,6 +37,7 @@ internal data class RowInformation(
         nextRow.row.toList(),
         isLeadEnd,
         call,
+        methodName,
         leadEndNotation,
     )
 }
@@ -238,39 +240,42 @@ internal class SimulatorState private constructor(
         }
         val notation = method.fullNotation.notation
 
-        val (callDisplay, leadEndNotation) = when {
-            idx == notation.size - 1 -> {
-                leads = generatePath(
-                    placeMethodCounts,
-                    leads.first,
-                    leadEndPlace,
-                    callFrequency,
-                    idx + 1,
-                    nextCall,
-                    use4thsPlaceCalls,
-                )
-                if (leads.second.method != leads.first.method) {
-                    methodCall(leads.second.method)
-                } else {
-                    null to null
-                }
-            }
+        var methodDisplay: Pair<String, String>? = null
+        var callDisplay: String? = null
+        var leadEndNotation: String? = null
 
-            (idx + 1) in method.callIndexes(use4thsPlaceCalls) -> {
-                leads = generatePath(
-                    placeMethodCounts,
-                    leads.first,
-                    leadEndPlace,
-                    callFrequency,
-                    idx + 1,
-                    nextCall,
-                    use4thsPlaceCalls,
-                )
-                _nextCall = null
-                leads.first.calls.firstOrNull { it.first == idx + 1 }?.second?.name to null
+        if (idx == notation.size - 1) {
+            leads = generatePath(
+                placeMethodCounts,
+                leads.first,
+                leadEndPlace,
+                callFrequency,
+                idx + 1,
+                nextCall,
+                use4thsPlaceCalls,
+            )
+            if (leads.second.method != leads.first.method) {
+                methodDisplay = methodCall(leads.second.method)
+                callDisplay = methodDisplay.first
+                leadEndNotation = methodDisplay.second
             }
+        }
 
-            else -> null to null
+        if ((idx + 1) in method.callIndexes(use4thsPlaceCalls)) {
+            leads = generatePath(
+                placeMethodCounts,
+                leads.first,
+                leadEndPlace,
+                callFrequency,
+                idx + 1,
+                nextCall,
+                use4thsPlaceCalls,
+            )
+            _nextCall = null
+            val callPart = leads.first.calls.firstOrNull { it.first == idx + 1 }?.second?.name
+            if (callPart != null) {
+                callDisplay = callDisplay?.let { "$callPart - $it" } ?: callPart
+            }
         }
 
         val activeCall = leads.first.calls.findLast { it.first <= idx }?.second
@@ -307,6 +312,9 @@ internal class SimulatorState private constructor(
             isLeadEnd = isLeadEnd,
             call = callDisplay,
             leadEndNotation = leadEndNotation,
+            methodName = if (methods.size != 1) {
+                methodDisplay?.first ?: methodCall(leads.first.method).first
+            } else null,
         )
     }
 
@@ -339,6 +347,7 @@ internal class SimulatorState private constructor(
             isLeadEnd = true,
             call = methodName,
             leadEndNotation = leadEndNotation,
+            methodName = methodName,
         )
     }
 
@@ -417,6 +426,7 @@ private fun PersistedSimulatorState.snapshotStateRows(): SnapshotStateList<RowIn
                     it.nextRow.indexOf(place),
                     it.nextRow.indexOf(place2),
                     it.isLeadEnd,
+                    it.methodName,
                     it.call,
                     it.leadEndNotation,
                 ),

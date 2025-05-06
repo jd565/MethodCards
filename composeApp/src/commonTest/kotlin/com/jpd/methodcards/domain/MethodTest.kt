@@ -14,20 +14,49 @@ class MethodTest {
         stage,
         stage,
         0,
-        classification = "",
+        classification = MethodClassification.TreblePlace,
         emptyList(),
         enabledForMultiMethod = false,
         multiMethodFrequency = MethodFrequency.Regular,
         enabledForBlueline = false,
+        customMethod = false,
     )
+
+    @Test
+    fun testGrandsireTriplesBob() {
+        val grandsire = Method(
+            name = "Grandsire Triples",
+            placeNotation = "3,1.7.1.7.1.7.1",
+            stage = 7,
+        ).copy(
+            calls = listOf(
+                CallDetails(
+                    methodName = "Grandsire Triples",
+                    name = "Bob",
+                    symbol = "-",
+                    notation = PlaceNotation("3.1"),
+                    from = -1,
+                    every = 14,
+                ),
+            ),
+        )
+
+        grandsire.callIndexes(false)
+            .forEach { (_, list) ->
+                list.forEach { call ->
+                    call.leadEnd
+                    call.callNotation
+                }
+            }
+    }
 
     @Test
     fun testCambridgeBristolOverUnder() {
         val cam = Method(
-                name = "Cambridge Surprise Major",
-                placeNotation = "x38x14x1258x36x14x58x16x78,12",
-                stage = 8,
-            )
+            name = "Cambridge Surprise Major",
+            placeNotation = "x38x14x1258x36x14x58x16x78,12",
+            stage = 8,
+        )
         val bris = Method(
             name = "Bristol Surprise Major",
             placeNotation = "x58x14.58x58.36.14x14.58x14x18,18",
@@ -40,7 +69,7 @@ class MethodTest {
 
         assertEquals(
             expected,
-            new?.pn,
+            new?.asString(),
         )
     }
 
@@ -58,12 +87,12 @@ class MethodTest {
         val actual = method.underOverNotation!!
         assertEquals(
             Pair(PlaceNotation(under), PlaceNotation(over)),
-            actual
+            actual,
         )
 
         assertEquals(
             method.placeNotation,
-            actual.first.merge(actual.second)
+            actual.first.merge(actual.second),
         )
     }
 
@@ -101,8 +130,8 @@ class MethodTest {
                 .first()
                 .lead
                 .last()
-            .row
-            .joinToString(separator = "") { it.toBellChar() },
+                .row
+                .joinToString(separator = "") { it.toBellChar() },
         )
         assertEquals(11, method.leads.size)
     }
@@ -121,8 +150,8 @@ class MethodTest {
                 .first()
                 .lead
                 .last()
-            .row
-            .joinToString(separator = "") { it.toBellChar() },
+                .row
+                .joinToString(separator = "") { it.toBellChar() },
         )
         assertEquals(15, method.leads.size)
     }
@@ -141,8 +170,8 @@ class MethodTest {
                 .first()
                 .lead
                 .last()
-            .row
-            .joinToString(separator = "") { it.toBellChar() },
+                .row
+                .joinToString(separator = "") { it.toBellChar() },
         )
         assertEquals(3, method.leads.size)
     }
@@ -161,15 +190,18 @@ class MethodTest {
                 .first()
                 .lead
                 .last()
-            .row
-            .joinToString(separator = "") { it.toBellChar() },
+                .row
+                .joinToString(separator = "") { it.toBellChar() },
         )
         assertEquals(3, method.leads.size)
         assertEquals(listOf(1), method.huntBells)
-        assertEquals(listOf(
-            listOf(2, 5, 6),
-            listOf(3, 7, 4)
-        ), method.leadCycles)
+        assertEquals(
+            listOf(
+                listOf(2, 5, 6),
+                listOf(3, 7, 4),
+            ),
+            method.leadCycles,
+        )
     }
 
     @Test
@@ -186,14 +218,17 @@ class MethodTest {
                 .first()
                 .lead
                 .last()
-            .row
-            .joinToString(separator = "") { it.toBellChar() },
+                .row
+                .joinToString(separator = "") { it.toBellChar() },
         )
         assertEquals(5, method.leads.size)
         assertEquals(listOf(2, 3), method.huntBells)
-        assertEquals(listOf(
-            listOf(1, 5, 7, 6, 4),
-        ), method.leadCycles)
+        assertEquals(
+            listOf(
+                listOf(1, 5, 7, 6, 4),
+            ),
+            method.leadCycles,
+        )
     }
 
     @Test
@@ -201,12 +236,12 @@ class MethodTest {
         var pn = PlaceNotation("3.1,3.1")
         assertEquals(
             listOf("3", "1", "3", "3", "1", "3"),
-            pn.fullNotation.notation,
+            pn.fullNotation(5).notation,
         )
         pn = PlaceNotation("3.1")
         assertEquals(
             listOf("3", "1"),
-            pn.fullNotation.notation,
+            pn.fullNotation(5).notation,
         )
     }
 }

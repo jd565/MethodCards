@@ -36,6 +36,7 @@ data class PersistedSimulatorState(
         val nextRow: List<Int> = emptyList(),
         val isLeadEnd: Boolean = false,
         val call: String? = null,
+        val methodName: String? = null,
         val leadEndNotation: String? = null,
     )
 

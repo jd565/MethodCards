@@ -100,10 +100,12 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.transformLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -131,6 +133,7 @@ fun SimulatorScreen(
             model = model,
             modifier = modifier,
             addMethodClicked = navigateToAppSettings,
+            onReset = remember { controller::resetStats },
         )
     } else {
         Box(modifier)
@@ -142,11 +145,12 @@ private fun SimulatorView(
     model: SimulatorUiModel,
     modifier: Modifier,
     addMethodClicked: () -> Unit,
+    onReset: () -> Unit,
 ) {
     var showFullStats by remember { mutableStateOf(false) }
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         if (model is SimulatorMethodsModel) {
-            SimulatorLineAndInputs(model.state, seeFullStats = { showFullStats = true })
+            SimulatorLineAndInputs(model.state, seeFullStats = { showFullStats = true }, onReset = onReset)
         } else {
             NoMethodSelectedView(modifier = Modifier.weight(1f), addMethodClicked = addMethodClicked)
         }
@@ -232,18 +236,21 @@ private fun StatsText(text: String) {
 }
 
 @Composable
-private fun RowCounts(state: SimulatorState, seeFullStats: () -> Unit, modifier: Modifier = Modifier) {
+private fun RowCounts(state: SimulatorState, seeFullStats: () -> Unit, onReset: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier = modifier) {
         Text("Rows: ${state.rowCount}")
         Text("Errors: ${state.errorCount}")
         Button(onClick = seeFullStats) {
             Text("Full Stats")
         }
+        Button(onClick = onReset) {
+            Text("Reset")
+        }
     }
 }
 
 @Composable
-private fun SimulatorLineAndInputs(state: SimulatorState?, seeFullStats: () -> Unit) {
+private fun SimulatorLineAndInputs(state: SimulatorState?, seeFullStats: () -> Unit, onReset: () -> Unit,) {
     val events = LocalKeyEvents.current
     val keyState by rememberUpdatedState(state)
     val eventCallback = remember(state?.handbellMode) { createKeyEventCallback(state) { keyState } }
@@ -256,6 +263,7 @@ private fun SimulatorLineAndInputs(state: SimulatorState?, seeFullStats: () -> U
             SimulatorLine(
                 state,
                 seeFullStats,
+                onReset,
                 modifier = Modifier.fillMaxSize(),
             )
             Row(modifier = Modifier.padding(8.dp).align(Alignment.BottomStart)) {
@@ -319,6 +327,7 @@ private fun SimulatorLineAndInputs(state: SimulatorState?, seeFullStats: () -> U
             SimulatorLine(
                 state,
                 seeFullStats,
+                onReset,
                 modifier = Modifier.fillMaxWidth().weight(1f),
             )
             Row(modifier = Modifier.padding(8.dp), horizontalArrangement = spacedBy(8.dp)) {
@@ -349,11 +358,12 @@ private fun SimulatorLineAndInputs(state: SimulatorState?, seeFullStats: () -> U
 private fun SimulatorLine(
     state: SimulatorState?,
     seeFullStats: () -> Unit,
+    onReset: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier) {
         if (state != null) {
-            RowCounts(state, seeFullStats, modifier = Modifier.padding(start = 24.dp))
+            RowCounts(state, seeFullStats, onReset, modifier = Modifier.padding(start = 24.dp))
             Column(
                 modifier = Modifier.padding(start = 24.dp).align(Alignment.BottomStart),
                 verticalArrangement = spacedBy(8.dp),
@@ -502,13 +512,35 @@ private fun SimulatorLine(
                                 constraints = Constraints(maxWidth = width.toInt()),
                             )
                         val maxY = min(callTextTop - callResult.size.height, size.height - callResult.size.height)
-                        callTextTop = (y - callResult.size.height / 2).coerceAtMost(maxY)
+                            .coerceAtLeast(0f)
+                        callTextTop = (y - callResult.size.height / 2).coerceIn(0f, maxY)
                         drawText(
                             callResult,
                             color = lineColor,
                             topLeft =
                             Offset((size.width + totalWidth) / 2, callTextTop),
                         )
+                    }
+
+                    if (y - spacing < 0 && row.call == null && row.methodName != null) {
+                        val textToDraw = row.methodName
+                        val width = (size.width - totalWidth) / 2f
+                        val callResult =
+                            nameMeasurer.measure(
+                                text = textToDraw,
+                                style = callStyle,
+                                constraints = Constraints(maxWidth = width.toInt()),
+                            )
+                        val maxY = min(callTextTop - callResult.size.height, size.height - callResult.size.height)
+                        if (maxY >= 0) {
+                            callTextTop = (y - callResult.size.height / 2).coerceIn(0f, maxY)
+                            drawText(
+                                callResult,
+                                color = lineColor,
+                                topLeft =
+                                    Offset((size.width + totalWidth) / 2, callTextTop),
+                            )
+                        }
                     }
 
                     lastY = y
@@ -726,6 +758,7 @@ private class SimulatorController(
     val uiState = _uiState.asStateFlow()
 
     private val args: MethodCardScreen.SingleMethodSimulator? = savedStateHandle.toRouteOrNull()
+    private val resetFlow = MutableStateFlow(0)
 
     init {
         viewModelScope.launch(defaultDispatcher) {
@@ -753,42 +786,47 @@ private class SimulatorController(
                 selectedMethodsFlow,
                 methodCardsPreferences.observeSimulatorUse4thsPlaceCalls(),
                 methodCardsPreferences.observeSimulatorHandbellMode(),
-            ) { methods, use4thsPlaceCalls, handbellMode ->
-                if (methods.isEmpty()) {
-                    SimulatorEmptyModel
-                } else {
-                    val selectedMethods =
-                        methods.filter { it.enabledForMultiMethod }.takeIf { it.isNotEmpty() } ?: methods
-                    val selectedName =
-                        when {
-                            selectedMethods.size == 1 -> selectedMethods.first().name
-                            selectedMethods.size < methods.size -> "Some methods (${selectedMethods.size})"
-                            methods.isNotEmpty() -> "All methods (${methods.size})"
-                            else -> ""
+                ::Triple
+            ).flatMapLatest { (methods, use4thsPlaceCalls, handbellMode) ->
+                val initialReset = resetFlow.value
+                resetFlow.map { currentReset ->
+                    if (methods.isEmpty()) {
+                        SimulatorEmptyModel
+                    } else {
+                        val selectedMethods =
+                            methods.filter { it.enabledForMultiMethod }.takeIf { it.isNotEmpty() } ?: methods
+                        val selectedName =
+                            when {
+                                selectedMethods.size == 1 -> selectedMethods.first().name
+                                selectedMethods.size < methods.size -> "Some methods (${selectedMethods.size})"
+                                methods.isNotEmpty() -> "All methods (${methods.size})"
+                                else -> ""
+                            }
+
+                        val simulatorState = if (persistModel != null &&
+                            persistModel.methodNames.size == selectedMethods.size &&
+                            persistModel.use4thsPlaceCalls == use4thsPlaceCalls &&
+                            persistModel.handbellMode == handbellMode &&
+                            initialReset == currentReset &&
+                            persistModel.methodNames.all { method -> selectedMethods.find { it.name == method } != null }
+                        ) {
+                            SimulatorState(selectedMethods, persistModel, ::updateMethodStatistics, ::persistModel)
+                        } else {
+                            SimulatorState(
+                                selectedMethods,
+                                ::updateMethodStatistics,
+                                ::persistModel,
+                                use4thsPlaceCalls,
+                                handbellMode,
+                            )
                         }
 
-                    val simulatorState = if (persistModel != null &&
-                        persistModel.methodNames.size == selectedMethods.size &&
-                        persistModel.use4thsPlaceCalls == use4thsPlaceCalls &&
-                        persistModel.handbellMode == handbellMode &&
-                        persistModel.methodNames.all { method -> selectedMethods.find { it.name == method } != null }
-                    ) {
-                        SimulatorState(selectedMethods, persistModel, ::updateMethodStatistics, ::persistModel)
-                    } else {
-                        SimulatorState(
-                            selectedMethods,
-                            ::updateMethodStatistics,
-                            ::persistModel,
-                            use4thsPlaceCalls,
-                            handbellMode,
+                        SimulatorMethodsModel(
+                            selectionDescription = selectedName,
+                            selectionEnabled = methods.size != 1,
+                            state = simulatorState,
                         )
                     }
-
-                    SimulatorMethodsModel(
-                        selectionDescription = selectedName,
-                        selectionEnabled = methods.size != 1,
-                        state = simulatorState,
-                    )
                 }
             }
                 .transformLatest { model ->
@@ -824,6 +862,10 @@ private class SimulatorController(
                 }
                 .collect { _uiState.value = it }
         }
+    }
+
+    fun resetStats() {
+        resetFlow.update { it + 1 }
     }
 
     override fun onCleared() {

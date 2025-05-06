@@ -61,7 +61,7 @@ class MethodCardsDataStorePreferences(
 
     override fun observeSimulatorCallFrequency(): Flow<CallFrequency> {
         return store.data.map { preferences ->
-            preferences[simulatorCallFrequencyPreference]?.toCallFrequency() ?: CallFrequency.Regular
+            preferences[simulatorCallFrequencyPreference]?.toCallFrequency() ?: CallFrequency.Manual
         }.distinctUntilChanged()
     }
 

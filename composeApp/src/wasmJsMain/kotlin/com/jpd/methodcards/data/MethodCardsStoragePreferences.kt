@@ -9,7 +9,7 @@ class MethodCardsStoragePreferences : MethodCardsPreferences {
     private val simulatorShowTreble = EnumStorageBasedFlow<ExtraPathType>(SIMULATOR_SHOW_TREBLE_KEY)
     private val simulatorShowCourseBell = EnumStorageBasedFlow(SIMULATOR_SHOW_COURSE_BELL_KEY, ExtraPathType.None)
     private val simulatorShowLeadEndNotation = BooleanStorageBasedFlow(SIMULATOR_SHOW_LEAD_END_NOTATION_KEY)
-    private val simulatorCallFrequency = EnumStorageBasedFlow(SIMULATOR_CALL_FREQUENCY_KEY, CallFrequency.Regular)
+    private val simulatorCallFrequency = EnumStorageBasedFlow(SIMULATOR_CALL_FREQUENCY_KEY, CallFrequency.Manual)
     private val simulatorHalfLeadSplicing = BooleanStorageBasedFlow(SIMULATOR_HALF_LEAD_SPLICING_KEY)
     private val simulatorUse4thsPlaceCalls = BooleanStorageBasedFlow(SIMULATOR_USE_4THS_PLACE_CALLS_KEY)
     private val simulatorHandbellMode = BooleanStorageBasedFlow(SIMULATOR_HANDBELL_MODE)
