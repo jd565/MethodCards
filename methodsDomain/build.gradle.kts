@@ -28,7 +28,7 @@ kotlin {
 
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
-        moduleName = "methodsDomain"
+        outputModuleName.set("methodsDomain")
         browser {
             val rootDirPath = project.rootDir.path
             val projectDirPath = project.projectDir.path

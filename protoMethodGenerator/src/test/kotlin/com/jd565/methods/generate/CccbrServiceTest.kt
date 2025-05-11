@@ -8,9 +8,15 @@ class CccbrServiceTest {
     fun testGetAllMethods() = runTest {
         val service = CccbrService()
         val alliance = service.getAllMethods()
-        alliance.sets.forEach {
-            println(it.notes)
+        var stedman: Pair<XmlMethodSet, XmlMethod>? = null
+        alliance.sets.forEach { set ->
+            set.methods.forEach { method ->
+                if (method.title?.value == "Stedman Triples") {
+                    stedman = set to method
+                }
+            }
         }
+        println(stedman)
     }
 
     @Test

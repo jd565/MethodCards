@@ -67,14 +67,14 @@ class CccbrService {
 
     suspend fun getBellboardPerformances(pages: Int = 1): List<XmlPerformance> {
         return coroutineScope {
-            (1..pages)
+            (1..pages * 2)
                 .chunked(5)
                 .flatMap { pages ->
                     pages.map { page ->
                         async {
                             ktor.get("https://bb.ringingworld.co.uk/export.php?length=q-or-p") {
                                 parameter("length", "q-or-p")
-                                parameter("pagesize", 500)
+                                parameter("pagesize", 250)
                                 parameter("page", page)
                             }.body<XmlPerformances>()
                         }

@@ -13,7 +13,7 @@ fun List<Pair<XmlMethod, XmlMethodSetProperties>>.convertToProto(
     return this.mapNotNull { (method, properties) ->
         val notation = method.notation?.value ?: return@mapNotNull null
         val xmlClassification = method.classification ?: properties.classification ?: return@mapNotNull null
-        val classification = xmlClassification.classification ?: return@mapNotNull null
+        val classification = xmlClassification.classification
         var isLittle = xmlClassification.little ?: false
         val title = method.title?.value ?: return@mapNotNull null
         val stage = (method.stage?.value ?: properties.stage?.value)?.toIntOrNull() ?: return@mapNotNull null
@@ -21,7 +21,7 @@ fun List<Pair<XmlMethod, XmlMethodSetProperties>>.convertToProto(
         var name = title
         var nameHasClassification = false
         name = name.removeSuffix(stage.stageName()).trim()
-        if (name.endsWith(classification)) {
+        if (classification != null && name.endsWith(classification)) {
             name = name.removeSuffix(classification).trim()
             nameHasClassification = true
         }

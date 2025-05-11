@@ -16,7 +16,8 @@ fun main() {
     runBlocking(Dispatchers.IO) {
         val methodsD = async { service.getAllMethods() }
         val performances = async {
-            service.getBellboardPerformances(pages = 40)
+            // service.getBellboardPerformances(pages = 40)
+            emptyList<XmlPerformance>()
         }.await()
 
         val methods = methodsD.await()
