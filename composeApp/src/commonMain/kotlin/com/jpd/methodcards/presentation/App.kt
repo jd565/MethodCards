@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -86,10 +87,8 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 @Preview
-fun App() {
+fun App(navController: NavHostController = rememberNavController()) {
     MethodCardTheme {
-        val navController = rememberNavController()
-
         var showBottomSheet by rememberSaveable { mutableStateOf(false) }
         val bottomSheetState = rememberModalBottomSheetState(
             skipPartiallyExpanded = true,

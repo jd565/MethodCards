@@ -11,6 +11,7 @@ import com.jpd.methodcards.presentation.icons.Blueline
 import com.jpd.methodcards.presentation.icons.Flashcard
 import com.jpd.methodcards.presentation.icons.Hearing
 import com.jpd.methodcards.presentation.icons.Simulator
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.reflect.KClass
 
@@ -34,37 +35,37 @@ sealed interface MethodCardScreen {
         }
     }
 
-    @Serializable
+    @Serializable @SerialName("BlueLine")
     data object BlueLine : TopLevel
-    @Serializable
+    @Serializable @SerialName("FlashCard")
     data object FlashCard : TopLevel
-    @Serializable
+    @Serializable @SerialName("Simulator")
     data object Simulator : TopLevel
-    @Serializable
+    @Serializable @SerialName("MethodSelection")
     data object Settings : TopLevel
-    @Serializable
+    @Serializable @SerialName("Compose")
     data object Compose : TopLevel
-    @Serializable
+    @Serializable @SerialName("OverUnder")
     data object OverUnder : TopLevel
-    @Serializable
+    @Serializable @SerialName("MethodBuilder")
     data object MethodBuilder : TopLevel
-    @Serializable
+    @Serializable @SerialName("RingingListener")
     data object RingingListener : TopLevel
-    @Serializable
+    @Serializable @SerialName("HearingTrainer")
     data object HearingTrainer : TopLevel
-    @Serializable
+    @Serializable @SerialName("BlueLineMethodList")
     data object BlueLineMethodList : MethodCardScreen
-    @Serializable
+    @Serializable @SerialName("MultiMethodSelection")
     data object MultiMethodSelection : MethodCardScreen
-    @Serializable
+    @Serializable @SerialName("AddMethod")
     data object AddMethod : MethodCardScreen
-    @Serializable
+    @Serializable @SerialName("SingleBlueLine")
     data class SingleMethodBlueLine(
         val name: String,
         val placeNotation: String,
         val stage: Int,
     ) : MethodCardScreen
-    @Serializable
+    @Serializable @SerialName("SingleSimulator")
     data class SingleMethodSimulator(val methodName: String, val placeNotation: String, val stage: Int) : MethodCardScreen
 
     companion object {

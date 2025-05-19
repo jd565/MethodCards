@@ -10,7 +10,7 @@ class WasmAudioPlayer : AudioPlayer {
     private val audios = GlobalScope.async {
         val base = window.document.URL
         val url = buildString {
-            append(base)
+            append(base.substringBefore('#'))
             if (!base.endsWith("/")) {
                 append("/")
             }

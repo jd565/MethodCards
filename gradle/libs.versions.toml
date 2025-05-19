@@ -5,7 +5,7 @@ android-minSdk = "24"
 android-targetSdk = "36"
 androidx-activityCompose = "1.10.1"
 compose-plugin = "1.8.0"
-kotlin = "2.1.20"
+kotlin = "2.1.21"
 coroutines-version = "1.10.2"
 androidx-room = "2.7.1"
 datastore = "1.1.6"
@@ -51,6 +51,6 @@ kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref =
 kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 google-services = { id = "com.google.gms.google-services", version = "4.4.2" }
 androidx-room = { id = "androidx.room", version.ref = "androidx-room" }
-ksp = { id = "com.google.devtools.ksp", version = "2.1.20-2.0.1" }
-gradle-kotlin-dsl = { id = "org.gradle.kotlin.kotlin-dsl", version = "6.1.1" }
+ksp = { id = "com.google.devtools.ksp", version = "2.1.21-2.0.1" }
+gradle-kotlin-dsl = { id = "org.gradle.kotlin.kotlin-dsl", version = "6.1.2" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
