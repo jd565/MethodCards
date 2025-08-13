@@ -10,6 +10,10 @@ import androidx.room.Room
 import com.jpd.methodcards.data.AppDatabase
 import com.jpd.methodcards.data.SimulatorDataStoreSerializer
 import com.jpd.methodcards.domain.PersistedSimulatorState
+import com.jpd.methodcards.presentation.hearing.AudioPlayer
+import com.jpd.methodcards.presentation.hearing.AudioPlayerImpl
+import com.jpd.methodcards.presentation.listener.AudioRecorder
+import com.jpd.methodcards.presentation.listener.AudioRecorderImpl
 import kotlinx.cinterop.ExperimentalForeignApi
 import okio.FileSystem
 import okio.Path.Companion.toPath
@@ -73,4 +77,8 @@ actual object MethodCardNonWebDi {
             corruptionHandler = ReplaceFileCorruptionHandler { SimulatorDataStoreSerializer().defaultValue },
         )
     }
+
+    actual fun getAudioRecorder(): AudioRecorder = AudioRecorderImpl()
+
+    actual fun getAudioPlayer(): AudioPlayer = AudioPlayerImpl()
 }

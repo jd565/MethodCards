@@ -39,6 +39,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,6 +60,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.window.core.layout.WindowWidthSizeClass
+import com.jpd.methodcards.di.MethodCardDi
 import com.jpd.methodcards.presentation.blueline.BlueLineMethodListScreen
 import com.jpd.methodcards.presentation.blueline.BlueLineScreen
 import com.jpd.methodcards.presentation.blueline.BlueLineTopBar
@@ -66,6 +68,7 @@ import com.jpd.methodcards.presentation.blueline.DarkBlueLineColors
 import com.jpd.methodcards.presentation.blueline.LightBlueLineColors
 import com.jpd.methodcards.presentation.blueline.blueLineColors
 import com.jpd.methodcards.presentation.composer.CompositionScreen
+import com.jpd.methodcards.presentation.configuration.ConfigurationScreen
 import com.jpd.methodcards.presentation.flashcard.FlashCardScreen
 import com.jpd.methodcards.presentation.flashcard.FlashCardTopBar
 import com.jpd.methodcards.presentation.hearing.HearingTrainerScreen
@@ -212,6 +215,9 @@ fun App(navController: NavHostController = rememberNavController()) {
                             modifier = Modifier.fillMaxSize(),
                             navigateToAppSettings = navigateToAppSettings,
                         )
+                    }
+                    composable<MethodCardScreen.Configuration> {
+                        ConfigurationScreen(modifier = Modifier.fillMaxSize())
                     }
                     composable<MethodCardScreen.OverUnder> {
                         OverUnderScreen(
@@ -403,7 +409,10 @@ private fun NavController.navigateTo(screen: MethodCardScreen) {
 }
 
 @Composable
-private fun MethodCardTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+private fun MethodCardTheme(content: @Composable () -> Unit) {
+    val darkPreference = MethodCardDi.getMethodCardsPreferences().observeDarkModePreference()
+        .collectAsState(isSystemInDarkTheme())
+    val darkTheme = darkPreference.value ?: isSystemInDarkTheme()
     LaunchedEffect(darkTheme) {
         blueLineColors = if (darkTheme) DarkBlueLineColors else LightBlueLineColors
     }

@@ -22,12 +22,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jpd.methodcards.domain.toBellChar
 
@@ -75,7 +75,7 @@ private fun StrikingGuess(
     modifier: Modifier = Modifier,
 ) {
     val viewModel: HearingTrainerViewModel = viewModel(factory = HearingTrainerViewModel.Factory)
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsState()
     Column(
         modifier = modifier.fillMaxSize().padding(vertical = 16.dp, horizontal = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -165,7 +165,7 @@ private fun BellPositionGuess(modifier: Modifier = Modifier) {
         factory = HearingTrainerViewModel.PositionFactory,
         key = "Position",
     )
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsState()
     Column(
         modifier = modifier.fillMaxSize().padding(vertical = 16.dp, horizontal = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

@@ -32,6 +32,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,7 +55,6 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jpd.methodcards.domain.MethodWithCalls
 import com.jpd.methodcards.domain.Row.Companion.rounds
@@ -72,7 +72,7 @@ fun MethodBuilderScreen(
     modifier: Modifier = Modifier,
 ) {
     val viewModel: MethodBuilderViewModel = viewModel(factory = MethodBuilderViewModel.Factory)
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsState()
     val keyEvents = LocalKeyEvents.current
 
     DisposableEffect(keyEvents, viewModel) {

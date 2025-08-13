@@ -9,7 +9,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, PermissionRequestProtocol {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        PermissionBridge.setListener(listener: self)
+//         PermissionBridge.setListener(listener: self)
         return true
     }
 

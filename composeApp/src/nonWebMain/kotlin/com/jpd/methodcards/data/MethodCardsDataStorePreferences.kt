@@ -26,6 +26,7 @@ class MethodCardsDataStorePreferences(
     private val simulatorUse4thsPlaceCallsPreference =
         booleanPreferencesKey("simulator_use_4ths_place_calls")
     private val simulatorHandbellModePreference = booleanPreferencesKey("simulator_handbell_mode")
+    private val darkModePreference = intPreferencesKey("dark_mode_preference")
 
     override fun observeStage(): Flow<Int> = store.data.map { preferences ->
         preferences[stagePreference] ?: 8
@@ -122,6 +123,26 @@ class MethodCardsDataStorePreferences(
     override suspend fun setSimulatorHandbellMode(enabled: Boolean) {
         store.edit { preferences ->
             preferences[simulatorHandbellModePreference] = enabled
+        }
+    }
+
+    override fun observeDarkModePreference(): Flow<Boolean?> {
+        return store.data.map { preferences ->
+            when (preferences[darkModePreference]) {
+                2 -> true
+                1 -> false
+                else -> null
+            }
+        }.distinctUntilChanged()
+    }
+
+    override suspend fun setDarkModePreference(enabled: Boolean?) {
+        store.edit { preferences ->
+            preferences[darkModePreference] = when (enabled) {
+                true -> 2
+                false -> 1
+                null -> 0
+            }
         }
     }
 

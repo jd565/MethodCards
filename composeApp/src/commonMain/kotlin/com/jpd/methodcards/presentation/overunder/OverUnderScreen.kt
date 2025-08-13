@@ -48,7 +48,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -178,7 +177,7 @@ fun OverUnderTopBar(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
             ) {
-                val state by controller.settingsState.collectAsStateWithLifecycle()
+                val state by controller.settingsState.collectAsState()
                 listOf(
                     Triple("Unnamed", state.unnamed, { controller.toggleUnnamed() }),
                     Triple("Lead end variants", state.leadEndVariants, { controller.toggleLeadEndVariants() }),

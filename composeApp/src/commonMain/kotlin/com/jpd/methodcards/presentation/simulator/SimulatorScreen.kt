@@ -63,7 +63,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
@@ -205,7 +204,7 @@ fun SimulatorTopBar(
     val controller: SimulatorController = viewModel(
         viewModelStoreOwner = backStackEntry, factory = SimulatorController.Factory)
 
-    val model = controller.uiState.collectAsStateWithLifecycle().value
+    val model = controller.uiState.collectAsState().value
     var showExplainer by remember { mutableStateOf(false) }
     MultiMethodTopBar(
         (model as? SimulatorMethodsModel)?.selectionDescription,

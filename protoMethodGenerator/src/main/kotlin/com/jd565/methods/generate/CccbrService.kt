@@ -52,17 +52,16 @@ class CccbrService {
         check(zis.nextEntry == null)
         zis.close()
 
-        val string = out.toString()
-        .trim().replaceFirst("^([\\W]+)<","<");
-        val xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + string
-            .dropWhile { it != '\n' }
+        val string = out.toString().replace("\r\n", "")
+            .replace("  +".toRegex(), " ")
+            .trim()
 
         val xmlInstance = XML {
             defaultPolicy {
                 this.unknownChildHandler = XmlConfig.Companion.IGNORING_UNKNOWN_CHILD_HANDLER
             }
         }
-        return xmlInstance.decodeFromString<XmlCollection>(xml)
+        return xmlInstance.decodeFromString<XmlCollection>(string)
     }
 
     suspend fun getBellboardPerformances(pages: Int = 1): List<XmlPerformance> {

@@ -41,6 +41,17 @@ class StorageBasedFlow<T> private constructor(
     fun flow() = flow
 }
 
+fun IntStorageBasedFlow(
+    key: String,
+    default: Int = 0,
+    storage: Storage = localStorage,
+): StorageBasedFlow<Int> = StorageBasedFlow(
+    key,
+    { it.toString() },
+    { it?.toIntOrNull() ?: default },
+    storage,
+)
+
 fun BooleanStorageBasedFlow(
     key: String,
     default: Boolean = false,

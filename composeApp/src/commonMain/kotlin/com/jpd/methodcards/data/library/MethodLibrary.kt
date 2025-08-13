@@ -15,7 +15,7 @@ import methodcards.composeapp.generated.resources.Res
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import kotlin.time.measureTime
 
-const val MethodLibraryVersion = 11
+const val MethodLibraryVersion = 12
 
 class MethodLibrary(
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,

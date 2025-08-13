@@ -10,13 +10,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -42,7 +42,7 @@ fun BlueLineMethodListScreen(
         factory = BlueLineMethodListController.Factory
     )
 
-    val model = controller.uiState.collectAsStateWithLifecycle().value
+    val model = controller.uiState.collectAsState().value
 
     val selectMethod: (String) -> Unit = remember(controller, navigateBack) {
         {

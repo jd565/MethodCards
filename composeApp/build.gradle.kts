@@ -13,6 +13,7 @@ plugins {
     alias(libs.plugins.kotlinx.serialization)
     alias(libs.plugins.google.services)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.compose.hot.reload)
 }
 
 kotlin {
@@ -55,14 +56,14 @@ kotlin {
         binaries.executable()
     }
 
-    jvm("desktop")
+    jvm("jvm")
 
     sourceSets {
         val nonWebMain by creating {
             dependsOn(commonMain.get())
         }
 
-        val desktopMain by getting
+        val jvmMain by getting
         val iosMain by creating
 
         fun KotlinSourceSet.setup() {
@@ -74,7 +75,7 @@ kotlin {
         iosArm64Main.get().dependsOn(iosMain)
         iosSimulatorArm64Main.get().dependsOn(iosMain)
         iosMain.setup()
-        desktopMain.setup()
+        jvmMain.setup()
 
         nonWebMain.dependencies {
             implementation(libs.androidx.room.runtime)
@@ -110,7 +111,7 @@ kotlin {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
         }
-        desktopMain.dependencies {
+        jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
         }
@@ -123,7 +124,7 @@ dependencies {
     // Android
     add("kspAndroid", libs.androidx.room.compiler)
     // JVM (Desktop)
-    add("kspDesktop", libs.androidx.room.compiler)
+    add("kspJvm", libs.androidx.room.compiler)
     // iOS
     add("kspIosSimulatorArm64", libs.androidx.room.compiler)
     add("kspIosX64", libs.androidx.room.compiler)

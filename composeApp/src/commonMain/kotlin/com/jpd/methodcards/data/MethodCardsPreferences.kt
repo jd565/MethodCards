@@ -5,6 +5,8 @@ import com.jpd.methodcards.domain.ExtraPathType
 import kotlinx.coroutines.flow.Flow
 
 interface MethodCardsPreferences {
+    fun observeDarkModePreference(): Flow<Boolean?>
+    suspend fun setDarkModePreference(enabled: Boolean?)
     fun observeStage(): Flow<Int>
     suspend fun setStage(stage: Int)
     fun observeSimulatorShowTreble(): Flow<ExtraPathType>

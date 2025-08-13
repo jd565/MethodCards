@@ -3,6 +3,7 @@ package com.jpd.methodcards.data
 import com.jpd.methodcards.domain.CallFrequency
 import com.jpd.methodcards.domain.ExtraPathType
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 class MethodCardsStoragePreferences : MethodCardsPreferences {
     private val stage = StorageBasedFlow(STAGE_KEY, { it.toString() }, { it?.toIntOrNull() ?: 8 })
@@ -13,6 +14,7 @@ class MethodCardsStoragePreferences : MethodCardsPreferences {
     private val simulatorHalfLeadSplicing = BooleanStorageBasedFlow(SIMULATOR_HALF_LEAD_SPLICING_KEY)
     private val simulatorUse4thsPlaceCalls = BooleanStorageBasedFlow(SIMULATOR_USE_4THS_PLACE_CALLS_KEY)
     private val simulatorHandbellMode = BooleanStorageBasedFlow(SIMULATOR_HANDBELL_MODE)
+    private val darkModePreference = IntStorageBasedFlow("dark_mode_preference")
 
     override fun observeStage(): Flow<Int> {
         return stage.flow()
@@ -76,6 +78,24 @@ class MethodCardsStoragePreferences : MethodCardsPreferences {
 
     override suspend fun setSimulatorHandbellMode(enabled: Boolean) {
         simulatorHandbellMode.value = enabled
+    }
+
+    override fun observeDarkModePreference(): Flow<Boolean?> {
+        return darkModePreference.flow().map { value ->
+            when (value) {
+                2 -> true
+                1 -> false
+                else -> null
+            }
+        }
+    }
+
+    override suspend fun setDarkModePreference(enabled: Boolean?) {
+        darkModePreference.value = when (enabled) {
+            true -> 2
+            false -> 1
+            null -> 0
+        }
     }
 
     companion object {

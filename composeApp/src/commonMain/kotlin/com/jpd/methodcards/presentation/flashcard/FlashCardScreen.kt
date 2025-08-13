@@ -29,7 +29,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -91,7 +90,7 @@ fun FlashCardTopBar(
         factory = FlashCardController.Factory
     )
 
-    val model = controller.uiState.collectAsStateWithLifecycle().value
+    val model = controller.uiState.collectAsState().value
     var showExplainer by remember { mutableStateOf(false) }
     MultiMethodTopBar(
         (model as? FlashCardMethodModel)?.selectionDescription,

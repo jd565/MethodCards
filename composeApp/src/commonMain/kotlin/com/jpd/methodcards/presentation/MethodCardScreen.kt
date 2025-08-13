@@ -3,6 +3,7 @@ package com.jpd.methodcards.presentation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.runtime.Immutable
@@ -31,6 +32,7 @@ sealed interface MethodCardScreen {
                     MethodBuilder,
                     // RingingListener,
                     HearingTrainer,
+                    Configuration,
                 )
         }
     }
@@ -67,6 +69,8 @@ sealed interface MethodCardScreen {
     ) : MethodCardScreen
     @Serializable @SerialName("SingleSimulator")
     data class SingleMethodSimulator(val methodName: String, val placeNotation: String, val stage: Int) : MethodCardScreen
+    @Serializable @SerialName("Configuration")
+    data object Configuration : TopLevel
 
     companion object {
         val entries: List<KClass<out MethodCardScreen>>
@@ -100,6 +104,7 @@ val KClass<out MethodCardScreen>?.title: String
         MethodCardScreen.MethodBuilder::class -> "Method Builder"
         MethodCardScreen.RingingListener::class -> "Ringing Listener"
         MethodCardScreen.HearingTrainer::class -> "Hearing Trainer"
+        MethodCardScreen.Configuration::class -> "Configuration"
         else -> "Unknown"
     }
 
@@ -109,9 +114,10 @@ val MethodCardScreen.TopLevel.icon: ImageVector
         MethodCardScreen.Compose -> Icons.Filled.Build
         MethodCardScreen.FlashCard -> Icons.Filled.Flashcard
         MethodCardScreen.OverUnder -> Icons.Filled.ShoppingCart
-        MethodCardScreen.Settings -> Icons.Filled.Settings
+        MethodCardScreen.Settings -> Icons.Filled.Menu
         MethodCardScreen.Simulator -> Icons.Filled.Simulator
         MethodCardScreen.MethodBuilder -> Icons.Filled.AddCircle
         MethodCardScreen.RingingListener -> Icons.Filled.Hearing
         MethodCardScreen.HearingTrainer -> Icons.Filled.Hearing
+        MethodCardScreen.Configuration -> Icons.Filled.Settings
     }
