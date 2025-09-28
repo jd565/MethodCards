@@ -70,8 +70,14 @@ data class FullMethodCall(
 
 data class MethodSelection(
     val name: String,
+    val stage: Int,
     val selected: Boolean,
     val placeNotation: PlaceNotation,
+)
+
+data class MethodCollection(
+    val name: String,
+    val methods: List<String>,
 )
 
 enum class CallFrequency {

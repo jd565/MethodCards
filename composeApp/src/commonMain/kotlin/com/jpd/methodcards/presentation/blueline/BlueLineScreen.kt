@@ -341,7 +341,7 @@ private fun BlueLine(
                         val nameResult = measurer.measure(title, style = style)
                         drawText(
                             nameResult,
-                            color = Color.Black,
+                            color = textColor,
                             topLeft = Offset(
                                 x = startX + (spacing - results[0].size.width) / 2,
                                 y = startY,

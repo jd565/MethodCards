@@ -8,12 +8,14 @@ import androidx.room.RewriteQueriesToDropUnusedColumns
 import androidx.room.Transaction
 import com.jpd.MethodProto
 import com.jpd.methodcards.data.library.toDomain
+import com.jpd.methodcards.domain.MethodCollection
 import com.jpd.methodcards.domain.MethodFrequency
 import com.jpd.methodcards.domain.MethodSelection
 import com.jpd.methodcards.domain.MethodWithCalls
 import com.jpd.methodcards.domain.PlaceNotation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -24,12 +26,20 @@ class RoomMethodDao(
         return dao.getMethodsByStage(stage)
     }
 
+    override fun getMethods(): Flow<List<MethodSelection>> {
+        return dao.getMethods()
+    }
+
     override fun getSelectedMethods(): Flow<List<MethodWithCalls>> {
         return dao.getSelectedMethods().map { it.map { m -> m.toDomain() } }
     }
 
     override fun getMethod(name: String): Flow<MethodWithCalls?> {
         return dao.getMethod(name).map { it?.toDomain() }
+    }
+
+    override fun getCollections(): Flow<List<MethodCollection>> {
+        return dao.getCollections().map { it.map { c -> c.toDomain() } }
     }
 
     override suspend fun searchByPlaceNotation(pn: PlaceNotation): MethodWithCalls? {
@@ -115,18 +125,36 @@ class RoomMethodDao(
         }
         dao.insert(methodEntities, callEntities)
     }
+
+    override suspend fun selectCollection(collectionName: String) {
+        dao.selectCollection(collectionName)
+    }
+
+    override suspend fun saveCollection(collectionName: String) {
+        dao.saveCollection(collectionName)
+    }
 }
 
 @Dao
 interface RoomSqlMethodDao {
+    @RewriteQueriesToDropUnusedColumns
     @Query("""
-        SELECT m.name, m.placeNotation, s.selected
+        SELECT *
         FROM MethodEntity AS m
         INNER JOIN SelectionEntity AS s on s.selectionName = m.name
         WHERE m.stage = :stage
         ORDER BY s.selected DESC, m.magic
     """)
     fun getMethodsByStage(stage: Int): Flow<List<MethodSelection>>
+
+    @RewriteQueriesToDropUnusedColumns
+    @Query("""
+        SELECT *
+        FROM MethodEntity AS m
+        INNER JOIN SelectionEntity AS s on s.selectionName = m.name
+        ORDER BY s.selected DESC, m.magic
+    """)
+    fun getMethods(): Flow<List<MethodSelection>>
 
     @Transaction
     @RewriteQueriesToDropUnusedColumns
@@ -148,6 +176,10 @@ interface RoomSqlMethodDao {
         WHERE m.name = :name
     """)
     fun getMethod(name: String): Flow<MethodWithCallsEntity?>
+
+    @RewriteQueriesToDropUnusedColumns
+    @Query("""SELECT * FROM MethodCollectionEntity""")
+    fun getCollections(): Flow<List<MethodCollectionEntity>>
 
     @Transaction
     @RewriteQueriesToDropUnusedColumns
@@ -222,4 +254,35 @@ interface RoomSqlMethodDao {
 
     @Query("SELECT * FROM MethodStatisticsEntity WHERE methodName = :methodName")
     suspend fun getMethodStatistics(methodName: String): MethodStatisticsEntity?
+
+    @Transaction
+    suspend fun selectCollection(collectionName: String) {
+        val methods = getCollections().first()
+            .firstOrNull { it.collectionName == collectionName }
+            ?.methods
+            ?: return
+        deselectAllMethods()
+        selectMethods(methods)
+    }
+
+    @Query("UPDATE SelectionEntity SET selected = :notSelected")
+    suspend fun deselectAllMethods(notSelected: Boolean = false)
+
+    @Query("""
+        UPDATE SelectionEntity
+        SET selected = true
+        WHERE selectionName IN (:methods)
+    """)
+    suspend fun selectMethods(methods: List<String>)
+
+    @Transaction
+    suspend fun saveCollection(collectionName: String) {
+        val selected = getSelectedMethods().first()
+            .map { it.name }
+        val entity = MethodCollectionEntity(collectionName, selected)
+        insertCollection(entity)
+    }
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCollection(collection: MethodCollectionEntity)
 }

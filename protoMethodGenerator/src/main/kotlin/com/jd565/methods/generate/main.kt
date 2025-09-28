@@ -39,7 +39,10 @@ fun main() {
         println("Parsed performances")
         var count = 0
         val protoMethods = mutableListOf<MethodProto>()
-        methodsByStage.forEach { (stage, list) ->
+        val stageOrder = listOf(8, 6, 7, 5, 10, 12, 9, 11)
+        val stageList = (1..30).sortedBy { stageOrder.indexOf(it).let { idx -> if (idx == -1) 100 else idx } }
+        stageList.forEach { stage ->
+            val list = methodsByStage[stage]!!
             println("Most popular methods for stage $stage: ${popularMethods[stage]?.take(20)?.joinToString()}")
             val top = (topMethods[stage] ?: emptyList())
             val pop = (popularMethods[stage] ?: emptyList())

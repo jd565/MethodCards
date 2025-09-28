@@ -279,7 +279,11 @@ fun App(navController: NavHostController = rememberNavController()) {
                         CompositionScreen(modifier = Modifier.fillMaxSize())
                     }
                     composable<MethodCardScreen.MethodBuilder> {
-                        MethodBuilderScreen(modifier = Modifier.fillMaxSize())
+                        MethodBuilderScreen(
+                            modifier = Modifier.fillMaxSize(),
+                            navigateToBlueline = { navController.navigate(it) },
+                            navigateToSimulator = { navController.navigate(it) },
+                        )
                     }
                     composable<MethodCardScreen.RingingListener> {
                         AudioFFTScreen(modifier = Modifier.fillMaxSize())

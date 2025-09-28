@@ -4,20 +4,29 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
+import com.jpd.methodcards.data.MethodRepository
+import com.jpd.methodcards.domain.MethodWithCalls
+import com.jpd.methodcards.domain.PlaceNotation
 import com.jpd.methodcards.domain.toBellChar
 import com.jpd.methodcards.domain.toBellDigit
 import com.jpd.methodcards.presentation.methodbuilder.MethodBuilderViewModel.MethodBuilderEvent.GridCellSelected
 import com.jpd.methodcards.presentation.methodbuilder.MethodBuilderViewModel.MethodBuilderEvent.NotationCellSelected
 import com.jpd.methodcards.presentation.methodbuilder.MethodBuilderViewModel.MethodBuilderEvent.StageSelected
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.reflect.KClass
 
-class MethodBuilderViewModel : ViewModel() {
+class MethodBuilderViewModel(
+    private val methodRepository: MethodRepository = MethodRepository()
+) : ViewModel() {
     private val stage = MutableStateFlow(8)
     private val selectedGrid = MutableStateFlow<Pair<Int, Int>>(Pair(0, 0))
     private val grid = MutableStateFlow<List<Array<Int?>>>(
@@ -41,6 +50,8 @@ class MethodBuilderViewModel : ViewModel() {
         ),
     )
     val uiState = _uiState.asStateFlow()
+    private val _methodEvent = MutableSharedFlow<MethodWithCalls>()
+    val methodEvent = _methodEvent.asSharedFlow()
 
     init {
         combine(
@@ -115,13 +126,46 @@ class MethodBuilderViewModel : ViewModel() {
                     notation.update { calculateNotationFromGrid(grid.value) }
                 }
             }
+
+            MethodBuilderEvent.Reset -> {
+                grid.value = List(stage.value * 4 + 1) { idx ->
+                    if (idx == 0) {
+                        Array(stage.value) { it + 1 }
+                    } else {
+                        Array(stage.value) { null }
+                    }
+                }
+                notation.value = calculateNotationFromGrid(grid.value)
+            }
+            MethodBuilderEvent.Search -> {
+                viewModelScope.launch {
+                    val notation = notation.value
+                        .dropLastWhile { it == null }
+                    val notationNotNull = notation.mapNotNull { it }
+                    if (notation.size != notationNotNull.size) return@launch
+                    val pn = placeNotationForFull(notationNotNull)
+                    val method = methodRepository.searchByPlaceNotation(pn) ?: MethodWithCalls.fromPlaceNotation(
+                            "Unnamed",
+                            stage.value,
+                            pn,
+                        )
+                    _methodEvent.emit(method)
+                }
+            }
         }
     }
 
-    private fun calculateNotationFromGrid(grid: List<Array<Int?>>): List<String> {
+    private fun calculateNotationFromGrid(grid: List<Array<Int?>>): List<String?> {
         return grid.windowed(2).map { (row1, row2) ->
             val notation = mutableListOf<String>()
             row1.forEachIndexed { idx, bell ->
+                if (bell == null) {
+                    return@map null
+                }
+                val newIdx = row2.indexOf(bell)
+                if (newIdx < 0 || abs(idx - newIdx) > 1) {
+                    return@map null
+                }
                 if (row2.getOrNull(idx) == bell) {
                     notation.add(idx.plus(1).toBellChar())
                 }
@@ -134,12 +178,43 @@ class MethodBuilderViewModel : ViewModel() {
         }
     }
 
+    private fun placeNotationForFull(notation: List<String>): PlaceNotation {
+        // Look for palindromic notation
+        // Just look for a single bit at the start or end
+        if (notation.size % 2 != 0) {
+            return PlaceNotation(listOf(notation))
+        }
+        if (notation.dropLast(1).isPalindromic()) {
+            return PlaceNotation(
+                listOf(
+                    notation.take(notation.size / 2),
+                    notation.takeLast(1),
+                )
+            )
+        }
+        if (notation.drop(1).isPalindromic()) {
+            return PlaceNotation(
+                listOf(
+                    notation.take(1),
+                    notation.drop(1).take(notation.size / 2),
+                )
+            )
+        }
+        return PlaceNotation(listOf(notation))
+    }
+
+    private fun List<String>.isPalindromic(): Boolean {
+        return this == this.asReversed()
+    }
+
     sealed class MethodBuilderEvent {
         data class StageSelected(val stage: Int) : MethodBuilderEvent()
         data class GridCellSelected(val row: Int, val col: Int) : MethodBuilderEvent()
         data class GridCellDelta(val delta: Pair<Int, Int>) : MethodBuilderEvent()
         data class NotationCellSelected(val row: Int) : MethodBuilderEvent()
         data class KeyboardEntry(val entry: String?) : MethodBuilderEvent()
+        data object Reset : MethodBuilderEvent()
+        data object Search : MethodBuilderEvent()
         // data class KeyEvent(val event: com.jpd.methodcards.presentation.KeyEvent) :
         //     MethodBuilderEvent()
     }

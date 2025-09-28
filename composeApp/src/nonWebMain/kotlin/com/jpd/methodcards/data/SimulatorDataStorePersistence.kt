@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.firstOrNull
 class SimulatorDataStorePersistence(
     private val store: DataStore<PersistedSimulatorState>
 ) : SimulatorPersistence{
-    override suspend fun getSimulatorModel(stage: Int): PersistedSimulatorState? {
+    override suspend fun getSimulatorModel(): PersistedSimulatorState? {
         return store.data.firstOrNull()
     }
 

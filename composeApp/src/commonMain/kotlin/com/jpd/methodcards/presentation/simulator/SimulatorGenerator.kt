@@ -50,6 +50,7 @@ internal class SimulatorState private constructor(
     private val persistState: (PersistedSimulatorState) -> Unit,
     private val use4thsPlaceCalls: Boolean,
     val handbellMode: Boolean,
+    selectedBell: Int?,
 ) {
     constructor(
         methods: List<MethodWithCalls>,
@@ -57,6 +58,7 @@ internal class SimulatorState private constructor(
         persistState: (PersistedSimulatorState) -> Unit,
         use4thsPlaceCalls: Boolean,
         handbellMode: Boolean,
+        selectedBell: Int?,
     ) : this(
         methods = methods,
         persistedState = null,
@@ -64,6 +66,7 @@ internal class SimulatorState private constructor(
         use4thsPlaceCalls = use4thsPlaceCalls,
         persistState = persistState,
         handbellMode = handbellMode,
+        selectedBell = selectedBell,
     )
 
     constructor(
@@ -78,9 +81,10 @@ internal class SimulatorState private constructor(
         use4thsPlaceCalls = persistedState.use4thsPlaceCalls,
         persistState = persistState,
         handbellMode = persistedState.handbellMode,
+        selectedBell = null,
     )
 
-    private val place: Int = persistedState?.place ?: methods.random().leadCycles.flatten().random()
+    private val place: Int = persistedState?.place ?: selectedBell ?: methods.random().leadCycles.flatten().random()
     private val place2: Int = persistedState?.place2 ?: run {
         var p: Int
         do {

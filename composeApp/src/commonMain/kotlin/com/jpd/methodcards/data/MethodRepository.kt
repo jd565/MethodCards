@@ -1,6 +1,7 @@
 package com.jpd.methodcards.data
 
 import com.jpd.methodcards.di.MethodCardDi
+import com.jpd.methodcards.domain.MethodCollection
 import com.jpd.methodcards.domain.MethodFrequency
 import com.jpd.methodcards.domain.MethodSelection
 import com.jpd.methodcards.domain.MethodWithCalls
@@ -10,9 +11,6 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 class MethodRepository(
@@ -20,12 +18,10 @@ class MethodRepository(
     private val dao: MethodDao = MethodCardDi.getMethodDao(),
     private val simulatorPersistence: SimulatorPersistence = MethodCardDi.getSimulatorPersistence(),
 ) {
-    private fun observeStage(): Flow<Int> = preferences.observeStage()
-
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun getMethods(): Flow<Pair<Int, List<MethodSelection>>> = observeStage().flatMapLatest { stage ->
-        dao.getMethodsByStage(stage).map { stage to it }
-    }
+    fun getMethods(): Flow<List<MethodSelection>> = dao.getMethods()
+
+    fun getCollections(): Flow<List<MethodCollection>> = dao.getCollections()
 
     fun observeSelectedMethods(): Flow<List<MethodWithCalls>> = dao.getSelectedMethods()
 
@@ -56,8 +52,7 @@ class MethodRepository(
     }
 
     suspend fun getSimulatorModel(): PersistedSimulatorState? {
-        val stage = preferences.observeStage().first()
-        return simulatorPersistence.getSimulatorModel(stage)
+        return simulatorPersistence.getSimulatorModel()
     }
 
     @OptIn(DelicateCoroutinesApi::class)
@@ -77,5 +72,13 @@ class MethodRepository(
 
     suspend fun addMethod(method: MethodWithCalls) {
         dao.addMethod(method)
+    }
+
+    suspend fun selectCollection(collectionName: String) {
+        dao.selectCollection(collectionName)
+    }
+
+    suspend fun saveCollection(collectionName: String) {
+        dao.saveCollection(collectionName)
     }
 }

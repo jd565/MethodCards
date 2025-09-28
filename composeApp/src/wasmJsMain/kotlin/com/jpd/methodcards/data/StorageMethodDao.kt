@@ -5,6 +5,7 @@ import com.jpd.MethodsProto
 import com.jpd.methodcards.data.library.toDomain
 import com.jpd.methodcards.domain.CallDetails
 import com.jpd.methodcards.domain.MethodClassification
+import com.jpd.methodcards.domain.MethodCollection
 import com.jpd.methodcards.domain.MethodFrequency
 import com.jpd.methodcards.domain.MethodSelection
 import com.jpd.methodcards.domain.MethodWithCalls
@@ -21,14 +22,29 @@ import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.w3c.dom.get
 import org.w3c.dom.set
-import kotlin.collections.set
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 class StorageMethodDao : MethodDao {
     private val methodsByStage = MutableStateFlow(emptyMap<Int, List<MethodSelection>>())
     private val methodsByName = MutableStateFlow(emptyMap<String, MethodWithCalls>())
+    private val allMethods = MutableStateFlow(emptyList<MethodSelection>())
     private var magicByName = emptyMap<String, Int>()
+
+    private val collections: StorageBasedFlow<List<MethodCollection>> = StorageBasedFlow(
+        COLLECTIONS_KEY,
+        { collections -> collections.joinToString(";") { "${it.name}-${it.methods.joinToString(",")}" } },
+        {
+            it?.split(";")?.mapNotNull { each ->
+                val parts = each.split("-")
+                if (parts.size != 2) return@mapNotNull null
+                MethodCollection(
+                    parts[0],
+                    parts[1].split(","),
+                )
+            } ?: emptyList()
+        },
+    )
 
     private val selectedMethods: StorageBasedFlow<LinkedHashSet<String>> = StorageBasedFlow(
         SELECTED_METHODS_KEY,
@@ -51,6 +67,29 @@ class StorageMethodDao : MethodDao {
         },
     )
     private val blueLineMethod: StorageBasedFlow<String> = StorageBasedFlow(BLUE_LINE_METHOD_KEY, { it }, { it ?: "" })
+
+    override fun getCollections(): Flow<List<MethodCollection>> {
+        return collections.flow()
+    }
+
+    override fun getMethods(): Flow<List<MethodSelection>> {
+        return combine(
+            allMethods,
+            selectedMethods.flow(),
+        ) { methods, selected ->
+            val out = mutableListOf<MethodSelection>()
+            var selectedCount = 0
+            methods.forEach { m ->
+                if (m.name in selected) {
+                    out.add(selectedCount, m.copy(selected = true))
+                    selectedCount++
+                } else {
+                    out.add(m)
+                }
+            }
+            out
+        }
+    }
 
     override fun getMethodsByStage(stage: Int): Flow<List<MethodSelection>> {
         return combine(
@@ -176,24 +215,42 @@ class StorageMethodDao : MethodDao {
         // TODO("Not yet implemented")
     }
 
+    override suspend fun saveCollection(collectionName: String) {
+        val selected = selectedMethods.value
+        collections.update { current ->
+            val withoutThis = current.filter { it.name != collectionName }
+            withoutThis + MethodCollection(collectionName, selected.toList())
+        }
+    }
+
+    override suspend fun selectCollection(collectionName: String) {
+        val collection = collections.value.firstOrNull { it.name == collectionName } ?: return
+        selectedMethods.value = LinkedHashSet(collection.methods)
+    }
+
     override suspend fun insert(methods: List<MethodProto>) {
         val byName = mutableMapOf<String, MethodWithCalls>()
         val byStage = mutableMapOf<Int, MutableList<MethodSelection>>()
         val magic = mutableMapOf<String, Int>()
+        val allMethods = mutableListOf<MethodSelection>()
         getCustomMethods().forEach { method ->
-            byStage.getOrPut(method.stage) { mutableListOf() }
-                .add(MethodSelection(method.name, false, PlaceNotation(method.notation)))
+            val selection = MethodSelection(method.name, method.stage, false, PlaceNotation(method.notation))
+            byStage.getOrPut(method.stage) { mutableListOf() }.add(selection)
             byName[method.name] = method.toDomain(true)
             magic[method.name] = method.magic
+            allMethods.add(selection)
         }
         methods.forEach { method ->
+            val selection = MethodSelection(method.name, method.stage, false, PlaceNotation(method.notation))
             byStage.getOrPut(method.stage) { mutableListOf() }
-                .add(MethodSelection(method.name, false, PlaceNotation(method.notation)))
+                .add(selection)
             byName[method.name] = method.toDomain(false)
             magic[method.name] = method.magic
+            allMethods.add(selection)
         }
         methodsByName.value = byName
         methodsByStage.value = byStage
+        this.allMethods.value = allMethods
         magicByName = magic
     }
 
@@ -214,15 +271,18 @@ class StorageMethodDao : MethodDao {
         val newProtoMethods = MethodsProto(getCustomMethods().plus(method.toProto()))
         localStorage[CUSTOM_METHODS_KEY] = Base64.UrlSafe.encode(ProtoBuf.encodeToByteArray(newProtoMethods))
         methodsByName.update { it + (method.name to method) }
+        val newSelection =
+            MethodSelection(method.name, method.stage, false, PlaceNotation(method.placeNotation.asString()))
         methodsByStage.update { byStage ->
             val newMethods = byStage.getOrElse(method.stage) { emptyList() }
-            val newSelection = MethodSelection(method.name, false, PlaceNotation(method.placeNotation.asString()))
             byStage.plus(method.stage to listOf(newSelection).plus(newMethods))
         }
+        allMethods.update { methods -> listOf(newSelection).plus(methods) }
         magicByName = magicByName.plus(method.name to 0)
     }
 
     companion object {
+        private const val COLLECTIONS_KEY = "collections"
         private const val SELECTED_METHODS_KEY = "selectedMethods"
         private const val MULTI_METHOD_ENABLED_METHODS_KEY = "multiMethodEnabledMethods"
         private const val MULTI_METHOD_FREQUENCY_KEY = "multiMethodFrequency"

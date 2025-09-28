@@ -14,13 +14,14 @@ import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 import com.jpd.methodcards.domain.CallDetails
 import com.jpd.methodcards.domain.MethodClassification
+import com.jpd.methodcards.domain.MethodCollection
 import com.jpd.methodcards.domain.MethodFrequency
 import com.jpd.methodcards.domain.MethodWithCalls
 import com.jpd.methodcards.domain.PlaceNotation
 
 @Database(
-    entities = [MethodEntity::class, CallEntity::class, SelectionEntity::class, MethodStatisticsEntity::class],
-    version = 9,
+    entities = [MethodEntity::class, CallEntity::class, SelectionEntity::class, MethodStatisticsEntity::class, MethodCollectionEntity::class],
+    version = 10,
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 @TypeConverters(PlaceNotationTypeConverter::class)
@@ -117,6 +118,30 @@ data class MethodStatisticsEntity(
     val leadsRungWithError: List<Int>,
 )
 
+@Entity
+@TypeConverters(ListStringTypeConverter::class)
+data class MethodCollectionEntity(
+    @PrimaryKey val collectionName: String,
+    val methods: List<String>,
+) {
+    fun toDomain(): MethodCollection = MethodCollection(
+        collectionName,
+        methods,
+    )
+}
+
+class ListStringTypeConverter {
+    @TypeConverter
+    fun fromString(value: String): List<String> {
+        return value.split(",")
+    }
+
+    @TypeConverter
+    fun fromList(list: List<String>): String {
+        return list.joinToString(",")
+    }
+}
+
 class ListIntTypeConverter {
     @TypeConverter
     fun fromString(value: String): List<Int> {
@@ -138,17 +163,5 @@ class PlaceNotationTypeConverter {
     @TypeConverter
     fun toPlaceNotation(value: String): PlaceNotation {
         return PlaceNotation(value)
-    }
-}
-
-val MIGRATION_7_8 = object : Migration(7, 8) {
-    override fun migrate(connection: SQLiteConnection) {
-        connection.execSQL("ALTER TABLE CallEntity DROP COLUMN cover")
-    }
-}
-
-val MIGRATION_8_9 = object : Migration(8, 9) {
-    override fun migrate(connection: SQLiteConnection) {
-        connection.execSQL("ALTER TABLE MethodEntity ADD customMethod INTEGER NOT NULL DEFAULT 0")
     }
 }

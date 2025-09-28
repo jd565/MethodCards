@@ -21,7 +21,7 @@ class SimulatorStoragePersistence(
             null
         }
     }
-    override suspend fun getSimulatorModel(stage: Int): PersistedSimulatorState? {
+    override suspend fun getSimulatorModel(): PersistedSimulatorState? {
         return state
     }
 

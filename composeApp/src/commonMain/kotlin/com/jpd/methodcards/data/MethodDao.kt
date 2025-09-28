@@ -1,6 +1,7 @@
 package com.jpd.methodcards.data
 
 import com.jpd.MethodProto
+import com.jpd.methodcards.domain.MethodCollection
 import com.jpd.methodcards.domain.MethodFrequency
 import com.jpd.methodcards.domain.MethodSelection
 import com.jpd.methodcards.domain.MethodWithCalls
@@ -9,8 +10,10 @@ import kotlinx.coroutines.flow.Flow
 
 interface MethodDao {
     fun getMethodsByStage(stage: Int): Flow<List<MethodSelection>>
+    fun getMethods(): Flow<List<MethodSelection>>
     fun getSelectedMethods(): Flow<List<MethodWithCalls>>
     fun getMethod(name: String): Flow<MethodWithCalls?>
+    fun getCollections(): Flow<List<MethodCollection>>
     suspend fun toggleMethodSelected(name: String)
     suspend fun toggleMethodEnabledForMultiMethod(name: String)
     suspend fun deselectAllMethodsForMultiMethod()
@@ -25,4 +28,6 @@ interface MethodDao {
     suspend fun insert(methods: List<MethodProto>)
     suspend fun searchByPlaceNotation(pn: PlaceNotation): MethodWithCalls?
     suspend fun addMethod(method: MethodWithCalls)
+    suspend fun selectCollection(collectionName: String)
+    suspend fun saveCollection(collectionName: String)
 }

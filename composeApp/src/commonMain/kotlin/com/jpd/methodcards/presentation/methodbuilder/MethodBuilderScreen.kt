@@ -20,14 +20,21 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -62,6 +69,7 @@ import com.jpd.methodcards.domain.toBellChar
 import com.jpd.methodcards.presentation.KeyDirection
 import com.jpd.methodcards.presentation.KeyEvent
 import com.jpd.methodcards.presentation.LocalKeyEvents
+import com.jpd.methodcards.presentation.MethodCardScreen
 import com.jpd.methodcards.presentation.methodbuilder.MethodBuilderViewModel.MethodBuilderEvent
 import com.jpd.methodcards.presentation.methodbuilder.MethodBuilderViewModel.MethodBuilderEvent.GridCellSelected
 import com.jpd.methodcards.presentation.methodbuilder.MethodBuilderViewModel.MethodBuilderEvent.NotationCellSelected
@@ -70,10 +78,59 @@ import kotlin.math.max
 @Composable
 fun MethodBuilderScreen(
     modifier: Modifier = Modifier,
+    navigateToSimulator: (MethodCardScreen.SingleMethodSimulator) -> Unit,
+    navigateToBlueline: (MethodCardScreen.SingleMethodBlueLine) -> Unit,
 ) {
     val viewModel: MethodBuilderViewModel = viewModel(factory = MethodBuilderViewModel.Factory)
     val uiState by viewModel.uiState.collectAsState()
     val keyEvents = LocalKeyEvents.current
+
+    var methodDialog by remember { mutableStateOf<MethodWithCalls?>(null) }
+    LaunchedEffect(viewModel) {
+        viewModel.methodEvent.collect {
+            methodDialog = it
+        }
+    }
+
+    methodDialog?.let { method ->
+        AlertDialog(
+            onDismissRequest = { methodDialog = null },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        methodDialog = null
+                        navigateToBlueline(
+                            MethodCardScreen.SingleMethodBlueLine(
+                                method.name,
+                                method.placeNotation.asString(),
+                                method.stage,
+                            ),
+                        )
+                    },
+                ) {
+                    Text("Blue Line")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        methodDialog = null
+                        navigateToSimulator(
+                            MethodCardScreen.SingleMethodSimulator(
+                                method.name,
+                                method.placeNotation.asString(),
+                                method.stage,
+                            ),
+                        )
+                    },
+                ) {
+                    Text("Simulator")
+                }
+            },
+            title = { Text(method.name) },
+            text = { Text(method.placeNotation.asString()) },
+        )
+    }
 
     DisposableEffect(keyEvents, viewModel) {
         val callback: (KeyDirection, KeyEvent) -> Boolean = { direction, event ->
@@ -141,43 +198,65 @@ fun MethodBuilderView(
                 }
             }
         }
-        Column(modifier = Modifier.padding(horizontal = 20.dp).weight(1f).verticalScroll(scrollState)) {
-            Spacer(modifier = Modifier.height(20.dp))
-            var expanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-                TextField(
-                    value = "Stage: ${state.stage}",
-                    {},
-                    modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                    colors = ExposedDropdownMenuDefaults.textFieldColors(),
-                    readOnly = true,
-                    singleLine = true,
-                )
-                ExposedDropdownMenu(
-                    modifier = Modifier.exposedDropdownSize(false),
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                ) {
-                    MethodWithCalls.AllowedStages.forEach { maybeStage ->
-                        DropdownMenuItem(
-                            text = { Text("Stage: $maybeStage", style = MaterialTheme.typography.bodyLarge) },
-                            onClick = {
-                                onEvent(MethodBuilderEvent.StageSelected(maybeStage))
-                                expanded = false
-                            },
-                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+        Box(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.padding(horizontal = 20.dp).verticalScroll(scrollState)) {
+                Spacer(modifier = Modifier.height(20.dp))
+                Row {
+                    var expanded by remember { mutableStateOf(false) }
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = it },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        TextField(
+                            value = "Stage: ${state.stage}",
+                            {},
+                            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            colors = ExposedDropdownMenuDefaults.textFieldColors(),
+                            readOnly = true,
+                            singleLine = true,
                         )
+                        ExposedDropdownMenu(
+                            modifier = Modifier.exposedDropdownSize(false),
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false },
+                        ) {
+                            MethodWithCalls.AllowedStages.forEach { maybeStage ->
+                                DropdownMenuItem(
+                                    text = { Text("Stage: $maybeStage", style = MaterialTheme.typography.bodyLarge) },
+                                    onClick = {
+                                        onEvent(MethodBuilderEvent.StageSelected(maybeStage))
+                                        expanded = false
+                                    },
+                                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Button(
+                        onClick = { onEvent(MethodBuilderEvent.Reset) },
+                        modifier = Modifier.align(Alignment.CenterVertically),
+                    ) {
+                        Text("Reset")
                     }
                 }
+                Spacer(modifier = Modifier.height(16.dp))
+                MethodGrid(
+                    modifier = Modifier.fillMaxWidth(),
+                    state = state,
+                    onEvent = onEvent,
+                )
+                Spacer(modifier = Modifier.height(20.dp))
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            MethodGrid(
-                modifier = Modifier.fillMaxWidth(),
-                state = state,
-                onEvent = onEvent,
-            )
-            Spacer(modifier = Modifier.height(20.dp))
+            FloatingActionButton(
+                onClick = { onEvent(MethodBuilderEvent.Search) },
+                modifier = Modifier.align(Alignment.BottomEnd)
+                    .padding(40.dp),
+            ) {
+                Icon(Icons.Default.Search, "Search")
+            }
         }
         KeyEntry(
             modifier = Modifier.fillMaxWidth(),
@@ -220,7 +299,6 @@ fun MethodGrid(
                         val coord = Pair(colIdx, rowIdx)
                         MethodGridCell(
                             value = cell,
-                            stage = state.stage,
                             textMeasurer = textMeasurer,
                             modifier = Modifier
                                 .size(rowDpSize)
@@ -230,7 +308,6 @@ fun MethodGrid(
                                 ) {
                                     onEvent(GridCellSelected(rowIdx, colIdx))
                                 },
-                            onEvent = onEvent,
                             isSelected = state.selectedGrid == coord,
                             style = style,
                         )
@@ -242,8 +319,13 @@ fun MethodGrid(
         Column(modifier = Modifier.padding(top = rowDpSize.div(2))) {
             state.placeNotation.forEachIndexed { idx, notation ->
                 val isSelected = state.selectedNotation == idx
-                val backgroundColour = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
-                val textColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                val backgroundColour =
+                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
+                val textColor = when {
+                    notation == null -> MaterialTheme.colorScheme.error
+                    isSelected -> MaterialTheme.colorScheme.onPrimary
+                    else -> MaterialTheme.colorScheme.onSurface
+                }
                 Box(
                     modifier = Modifier
                         .requiredHeight(rowDpSize)
@@ -257,7 +339,7 @@ fun MethodGrid(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = notation,
+                        text = notation ?: "error",
                         style = style,
                         color = textColor,
                     )
@@ -270,12 +352,10 @@ fun MethodGrid(
 @Composable
 fun MethodGridCell(
     value: Int?,
-    stage: Int,
     textMeasurer: TextMeasurer,
     modifier: Modifier = Modifier,
     isSelected: Boolean,
     style: TextStyle,
-    onEvent: (MethodBuilderEvent) -> Unit,
 ) {
     val backgroundColour = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
     val textColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
@@ -292,8 +372,8 @@ fun MethodGridCell(
         }
         drawPath(
             Path().apply {
-                moveTo(0f, size.height.toFloat())
-                lineTo(size.width.toFloat(), size.height.toFloat())
+                moveTo(0f, size.height)
+                lineTo(size.width, size.height)
             },
             Color.Black,
             style = Stroke(width = 2.dp.toPx()),

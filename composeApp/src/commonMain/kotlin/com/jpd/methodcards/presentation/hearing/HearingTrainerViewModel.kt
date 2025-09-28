@@ -47,7 +47,7 @@ class HearingTrainerViewModel @OptIn(ExperimentalTime::class) constructor(
                 stage = 8,
                 isPlaying = false,
                 showFeedbackDialog = false,
-                feedbackMessage = "",
+                feedbackCorrect = false,
                 isBellFast = null,
                 selectedBell = null,
             )
@@ -142,16 +142,16 @@ class HearingTrainerViewModel @OptIn(ExperimentalTime::class) constructor(
     private fun check() {
         val current = _uiState.value
         if (strikingTrainer) {
-        if (current.selectedBell != null && current.isBellFast != null) {
-            val correctBell = alteredBell == current.selectedBell
-            val correctDirection = alteredBellFast == current.isBellFast
-            val isCorrect = correctBell && correctDirection
-            _uiState.update {
-                it.copy(
-                    showFeedbackDialog = true,
-                    feedbackMessage = if (isCorrect) "Correct!" else "Incorrect.",
-                )
-            }
+            if (current.selectedBell != null && current.isBellFast != null) {
+                val correctBell = alteredBell == current.selectedBell
+                val correctDirection = alteredBellFast == current.isBellFast
+                val isCorrect = correctBell && correctDirection
+                _uiState.update {
+                    it.copy(
+                        showFeedbackDialog = true,
+                        feedbackCorrect = isCorrect,
+                    )
+                }
             }
         } else {
             if (current.selectedBell != null) {
@@ -159,15 +159,17 @@ class HearingTrainerViewModel @OptIn(ExperimentalTime::class) constructor(
                 _uiState.update {
                     it.copy(
                         showFeedbackDialog = true,
-                        feedbackMessage = if (isCorrect) "Correct!" else "Incorrect.",
+                        feedbackCorrect = isCorrect,
                     )
                 }
             }
         }
     }
 
-    fun dismissFeedback() {
-        newRow()
+    fun dismissFeedback(wasCorrect: Boolean) {
+        if (wasCorrect) {
+            newRow()
+        }
     }
 
     companion object {

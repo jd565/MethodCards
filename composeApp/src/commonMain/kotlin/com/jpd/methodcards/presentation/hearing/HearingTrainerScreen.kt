@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
@@ -77,7 +79,7 @@ private fun StrikingGuess(
     val viewModel: HearingTrainerViewModel = viewModel(factory = HearingTrainerViewModel.Factory)
     val uiState by viewModel.uiState.collectAsState()
     Column(
-        modifier = modifier.fillMaxSize().padding(vertical = 16.dp, horizontal = 20.dp),
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 16.dp, horizontal = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         IconButton(onClick = { viewModel.playPause() }) {
@@ -140,17 +142,21 @@ private fun StrikingGuess(
             }
         }
 
+        Spacer(modifier = Modifier.padding(8.dp))
+
         Button(onClick = { viewModel.submitGuess() }) {
             Text(text = "Submit")
         }
 
+        Spacer(modifier = Modifier.padding(20.dp))
+
         if (uiState.showFeedbackDialog) {
             AlertDialog(
-                onDismissRequest = { viewModel.dismissFeedback() },
+                onDismissRequest = { viewModel.dismissFeedback(uiState.feedbackCorrect) },
                 title = { Text(text = "Feedback") },
-                text = { Text(text = uiState.feedbackMessage) },
+                text = { Text(text = if (uiState.feedbackCorrect) { "Correct!" } else { "Incorrect" }) },
                 confirmButton = {
-                    Button(onClick = { viewModel.dismissFeedback() }) {
+                    Button(onClick = { viewModel.dismissFeedback(uiState.feedbackCorrect) }) {
                         Text(text = "OK")
                     }
                 },
@@ -211,11 +217,11 @@ private fun BellPositionGuess(modifier: Modifier = Modifier) {
 
         if (uiState.showFeedbackDialog) {
             AlertDialog(
-                onDismissRequest = { viewModel.dismissFeedback() },
+                onDismissRequest = { viewModel.dismissFeedback(uiState.feedbackCorrect) },
                 title = { Text(text = "Feedback") },
-                text = { Text(text = uiState.feedbackMessage) },
+                text = { Text(text = if (uiState.feedbackCorrect) { "Correct!" } else { "Incorrect" }) },
                 confirmButton = {
-                    Button(onClick = { viewModel.dismissFeedback() }) {
+                    Button(onClick = { viewModel.dismissFeedback(uiState.feedbackCorrect) }) {
                         Text(text = "OK")
                     }
                 },

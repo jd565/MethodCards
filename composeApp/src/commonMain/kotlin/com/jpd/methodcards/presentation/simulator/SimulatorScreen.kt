@@ -18,17 +18,22 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
@@ -53,6 +58,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -133,6 +139,7 @@ fun SimulatorScreen(
             modifier = modifier,
             addMethodClicked = navigateToAppSettings,
             onReset = remember { controller::resetStats },
+            selectBell = remember { controller::selectBell },
         )
     } else {
         Box(modifier)
@@ -145,14 +152,58 @@ private fun SimulatorView(
     modifier: Modifier,
     addMethodClicked: () -> Unit,
     onReset: () -> Unit,
+    selectBell: (Int) -> Unit
 ) {
     var showFullStats by remember { mutableStateOf(false) }
+    var showBellSelection by remember { mutableStateOf(false) }
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         if (model is SimulatorMethodsModel) {
-            SimulatorLineAndInputs(model.state, seeFullStats = { showFullStats = true }, onReset = onReset)
+            SimulatorLineAndInputs(model.state, seeFullStats = { showFullStats = true }, onReset = onReset, chooseBell = { showBellSelection = true })
         } else {
             NoMethodSelectedView(modifier = Modifier.weight(1f), addMethodClicked = addMethodClicked)
         }
+    }
+
+    if (showBellSelection) {
+        AlertDialog(
+            onDismissRequest = { showBellSelection = false },
+            confirmButton = {},
+            title = {
+                Text("Choose Bell")
+            },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    repeat((model as? SimulatorMethodsModel)?.state?.stage ?: 1) { idx ->
+                        val bell = idx + 1
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(40.dp)
+                                .selectable(
+                                    selected = false,
+                                    onClick = {
+                                        selectBell(bell)
+                                        showBellSelection = false
+                                              },
+                                    role = Role.RadioButton
+                                )
+                                .padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = false,
+                                onClick = null // null recommended for accessibility with screen readers
+                            )
+                            Text(
+                                text = bell.toString(),
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.padding(start = 16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        )
     }
 
     if (showFullStats) {
@@ -249,7 +300,7 @@ private fun RowCounts(state: SimulatorState, seeFullStats: () -> Unit, onReset: 
 }
 
 @Composable
-private fun SimulatorLineAndInputs(state: SimulatorState?, seeFullStats: () -> Unit, onReset: () -> Unit,) {
+private fun SimulatorLineAndInputs(state: SimulatorState?, seeFullStats: () -> Unit, onReset: () -> Unit, chooseBell: () -> Unit) {
     val events = LocalKeyEvents.current
     val keyState by rememberUpdatedState(state)
     val eventCallback = remember(state?.handbellMode) { createKeyEventCallback(state) { keyState } }
@@ -263,6 +314,7 @@ private fun SimulatorLineAndInputs(state: SimulatorState?, seeFullStats: () -> U
                 state,
                 seeFullStats,
                 onReset,
+                chooseBell,
                 modifier = Modifier.fillMaxSize(),
             )
             Row(modifier = Modifier.padding(8.dp).align(Alignment.BottomStart)) {
@@ -327,6 +379,7 @@ private fun SimulatorLineAndInputs(state: SimulatorState?, seeFullStats: () -> U
                 state,
                 seeFullStats,
                 onReset,
+                chooseBell,
                 modifier = Modifier.fillMaxWidth().weight(1f),
             )
             Row(modifier = Modifier.padding(8.dp), horizontalArrangement = spacedBy(8.dp)) {
@@ -358,11 +411,17 @@ private fun SimulatorLine(
     state: SimulatorState?,
     seeFullStats: () -> Unit,
     onReset: () -> Unit,
+    chooseBell: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier) {
         if (state != null) {
-            RowCounts(state, seeFullStats, onReset, modifier = Modifier.padding(start = 24.dp))
+            Column(modifier = Modifier.padding(start = 24.dp)) {
+                RowCounts(state, seeFullStats, onReset)
+                Button(onClick = chooseBell) {
+                    Text("Choose Bell")
+                }
+            }
             Column(
                 modifier = Modifier.padding(start = 24.dp).align(Alignment.BottomStart),
                 verticalArrangement = spacedBy(8.dp),
@@ -758,6 +817,7 @@ private class SimulatorController(
 
     private val args: MethodCardScreen.SingleMethodSimulator? = savedStateHandle.toRouteOrNull()
     private val resetFlow = MutableStateFlow(0)
+    private var selectedBell: Int? = null
 
     init {
         viewModelScope.launch(defaultDispatcher) {
@@ -817,6 +877,7 @@ private class SimulatorController(
                                 ::persistModel,
                                 use4thsPlaceCalls,
                                 handbellMode,
+                                selectedBell,
                             )
                         }
 
@@ -864,6 +925,11 @@ private class SimulatorController(
     }
 
     fun resetStats() {
+        resetFlow.update { it + 1 }
+    }
+
+    fun selectBell(bell: Int) {
+        selectedBell = bell
         resetFlow.update { it + 1 }
     }
 

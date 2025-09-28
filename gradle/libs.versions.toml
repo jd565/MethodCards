@@ -1,16 +1,16 @@
 [versions]
-agp = "8.12.0"
+agp = "8.13.0"
 android-compileSdk = "36"
 android-minSdk = "24"
 android-targetSdk = "36"
-androidx-activityCompose = "1.10.1"
-compose-plugin = "1.9.0-beta01"
-kotlin = "2.2.0"
+androidx-activityCompose = "1.11.0"
+compose-plugin = "1.9.0"
+kotlin = "2.2.20"
 coroutines-version = "1.10.2"
-androidx-room = "2.7.2"
+androidx-room = "2.8.0"
 datastore = "1.1.7"
 kotlinx-serialization = "1.9.0"
-ktor = "3.2.3"
+ktor = "3.3.0"
 adaptive = "1.1.2"
 
 [libraries]
@@ -21,15 +21,15 @@ kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-c
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines-version" }
 kotlinx-serialization-proto = { module = "org.jetbrains.kotlinx:kotlinx-serialization-protobuf", version.ref = "kotlinx-serialization" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activityCompose" }
-navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version = "2.9.0-beta04" }
+navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version = "2.9.0" }
 datastore-preferences = { module = "androidx.datastore:datastore-preferences",version.ref = "datastore" }
 datastore= { module = "androidx.datastore:datastore",version.ref = "datastore" }
 datastore-okio = {module = "androidx.datastore:datastore-core-okio", version.ref = "datastore" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "androidx-room" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "androidx-room" }
-androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version = "2.5.2" }
+androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version = "2.6.0" }
 kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "coroutines-version" }
-compose-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version = "2.9.1" }
+compose-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version = "2.9.4" }
 backhandler = { module = "org.jetbrains.compose.ui:ui-backhandler", version.ref = "compose-plugin" }
 material3-adaptive = { module = "org.jetbrains.compose.material3.adaptive:adaptive", version.ref = "adaptive" }
 material3-adaptive-layout = { module = "org.jetbrains.compose.material3.adaptive:adaptive-layout", version.ref = "adaptive" }
@@ -51,7 +51,7 @@ kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref =
 kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 google-services = { id = "com.google.gms.google-services", version = "4.4.3" }
 androidx-room = { id = "androidx.room", version.ref = "androidx-room" }
-ksp = { id = "com.google.devtools.ksp", version = "2.2.0-2.0.2" }
-gradle-kotlin-dsl = { id = "org.gradle.kotlin.kotlin-dsl", version = "6.2.0" }
+ksp = { id = "com.google.devtools.ksp", version = "2.2.20-2.0.3" }
+gradle-kotlin-dsl = { id = "org.gradle.kotlin.kotlin-dsl", version = "6.4.0" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
-compose-hot-reload = { id = "org.jetbrains.compose.hot-reload", version = "1.0.0-beta05" }
+compose-hot-reload = { id = "org.jetbrains.compose.hot-reload", version = "1.0.0-beta08" }
