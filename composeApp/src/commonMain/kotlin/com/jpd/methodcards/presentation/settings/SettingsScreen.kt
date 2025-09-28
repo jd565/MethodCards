@@ -142,12 +142,18 @@ fun SettingsTopBar(
 
     if (showSaveCollection) {
         var value by remember { mutableStateOf(TextFieldValue()) }
-        AlertDialog(
+        val supporting = if (value.text.contains(Regex("[;,-]"))) {
+            "Collection name cannot contain ;, or -"
+        } else {
+            null
+        }
+            AlertDialog(
             onDismissRequest = { showSaveCollection = false },
             confirmButton = {
                 Text(
                     "Save",
-                    modifier = Modifier.padding(8.dp).clickable {
+                    modifier = Modifier.padding(8.dp)
+                        .clickable(enabled = supporting == null) {
                         saveCollection(value.text)
                         showSaveCollection = false
                     },
@@ -163,6 +169,10 @@ fun SettingsTopBar(
                     onValueChange = { value = it },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     label = { Text("Collection Name") },
+                    isError = supporting != null,
+                    supportingText = supporting?.let {
+                        { Text(it) }
+                    }
                 )
             },
         )
